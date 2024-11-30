@@ -21,7 +21,6 @@ class ImageGroup(QWidget):
         self.label.setMaximumHeight(400)
         self.label.setStyleSheet("border: 1px solid black;")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-
         self.label.setObjectName("image_label")
 
         self.canvas_group = QVBoxLayout()
@@ -43,6 +42,77 @@ class ImageGroup(QWidget):
 
         self.magnitude_spectrum = None
         self.phase_spectrum = None
+        
+        self.brightness = 0  
+        self.contrast = 1.0  
+        self.original_image = None  
+        self.start_pos = None  
+
+        
+        self.label.mousePressEvent = self.start_mouse_drag
+        self.label.mouseMoveEvent = self.adjust_brightness_contrast
+
+    def update_canvas(self):
+        '''Update the canvas with the selected spectrum'''
+        if self.magnitude_spectrum is not None and self.phase_spectrum is not None:
+            if self.combo_box.currentText() == "Magnitude":
+                self.show_fft(self.magnitude_spectrum)
+            else:
+                self.show_fft(self.phase_spectrum)
+
+    def show_fft(self, spectrum):
+        '''Show the FFT spectrum on the canvas
+        Args:
+            spectrum (np.ndarray): FFT spectrum
+        '''
+        self.canvas.figure.clear()
+        ax = self.canvas.figure.add_subplot(111)
+        ax.imshow(spectrum, cmap='gray')
+        ax.axis('off')
+        self.canvas.draw()
+
+    def start_mouse_drag(self, event):
+        '''Start tracking the mouse drag'''
+        self.start_pos = event.pos()
+
+    def adjust_brightness_contrast(self, event):
+        '''Adjust brightness and contrast based on mouse movement'''
+        if self.original_image is None:
+            return
+
+        dx = event.pos().x() - self.start_pos.x()  
+        dy = event.pos().y() - self.start_pos.y()  
+        
+        self.brightness = dy * 0.5  
+        self.contrast = 1 + (dx * 0.01)  
+
+        adjusted_image = self.apply_brightness_contrast(self.original_image, self.brightness, self.contrast)
+        self.display_image(adjusted_image)
+        
+        f = np.fft.fft2(adjusted_image)
+        fshift = np.fft.fftshift(f)
+        self.magnitude_spectrum = 20 * np.log(np.abs(fshift) + 1e-5)
+        self.phase_spectrum = np.angle(fshift)
+        
+        self.update_canvas()
+
+    def apply_brightness_contrast(self, image, brightness, contrast):
+        '''Apply brightness and contrast adjustments'''
+        adjusted = np.clip(contrast * image + brightness, 0, 255).astype(np.uint8)
+        return adjusted
+
+    def display_image(self, image):
+        '''Update the QLabel with the adjusted image'''
+        h, w = image.shape
+        qimage = QImage(image.data, w, h, w, QImage.Format_Grayscale8)
+        pixmap = QPixmap.fromImage(qimage)
+        self.label.setPixmap(pixmap)
+        self.label.setScaledContents(True)
+
+    def set_image(self, image):
+        '''Set the original image for the label'''
+        self.original_image = image
+        self.display_image(image)
 
     def update_canvas(self):
         '''Update the canvas with the selected spectrum'''
@@ -108,11 +178,11 @@ class MainWidget(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "", "Images (*.png *.jpg *.jpeg *.bmp *.tiff)")
         if file_path:
             image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
-            self.show_image(image, image_group.label)
+            image_group.set_image(image)  
 
             f = np.fft.fft2(image)
             fshift = np.fft.fftshift(f)
-            image_group.magnitude_spectrum = 20 * np.log(np.abs(fshift))
+            image_group.magnitude_spectrum = 20 * np.log(np.abs(fshift) + 1e-5)
             image_group.phase_spectrum = np.angle(fshift)
 
             image_group.update_canvas()

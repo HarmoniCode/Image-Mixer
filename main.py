@@ -13,7 +13,7 @@ from PyQt5.QtCore import Qt
 class ImageGroup(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.layout = QVBoxLayout()
+        self.layout = QHBoxLayout()
 
         self.label = QLabel("Image", self)
         self.label.setMaximumWidth(400)
@@ -24,6 +24,8 @@ class ImageGroup(QWidget):
 
         self.label.setObjectName("image_label")
 
+        self.canvas_group = QVBoxLayout()
+
         self.combo_box = QComboBox(self)
         self.combo_box.addItem("Magnitude")
         self.combo_box.addItem("Phase")
@@ -31,9 +33,11 @@ class ImageGroup(QWidget):
 
         self.canvas = FigureCanvas(Figure(figsize=(4, 4)))
 
+        self.canvas_group.addWidget(self.combo_box)
+        self.canvas_group.addWidget(self.canvas)
+
         self.layout.addWidget(self.label)
-        self.layout.addWidget(self.combo_box)
-        self.layout.addWidget(self.canvas)
+        self.layout.addLayout(self.canvas_group)
 
         self.setLayout(self.layout)
 

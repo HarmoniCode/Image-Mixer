@@ -45,6 +45,7 @@ class ImageGroup(QWidget):
         self.phase_spectrum = None
 
     def update_canvas(self):
+        '''Update the canvas with the selected spectrum'''
         if self.magnitude_spectrum is not None and self.phase_spectrum is not None:
             if self.combo_box.currentText() == "Magnitude":
                 self.show_fft(self.magnitude_spectrum)
@@ -52,6 +53,10 @@ class ImageGroup(QWidget):
                 self.show_fft(self.phase_spectrum)
 
     def show_fft(self, spectrum):
+        '''Show the FFT spectrum on the canvas
+        Args:
+            spectrum (np.ndarray): FFT spectrum
+        '''
         self.canvas.figure.clear()
         ax = self.canvas.figure.add_subplot(111)
         ax.imshow(spectrum, cmap='gray')
@@ -96,6 +101,10 @@ class MainWidget(QMainWindow):
         self.setCentralWidget(container)
 
     def load_image(self, image_group):
+        '''Load an image and calculate its FFT
+        Args:
+            image_group (ImageGroup): ImageGroup object
+        '''
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "", "Images (*.png *.jpg *.jpeg *.bmp *.tiff)")
         if file_path:
             image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
@@ -109,6 +118,11 @@ class MainWidget(QMainWindow):
             image_group.update_canvas()
 
     def show_image(self, image, label):
+        '''Show the image on the label
+        Args:
+            image (np.ndarray): Image
+            label (QLabel): QLabel object
+        '''
         h, w = image.shape
         qimage = QImage(image.data, w, h, w, QImage.Format_Grayscale8)
         pixmap = QPixmap.fromImage(qimage)

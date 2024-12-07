@@ -68,7 +68,7 @@ class ImageGroup(QWidget):
         # Rectangle selector
         self.rectangle_selector = RectangleSelector(
             self.ax,
-            onselect=None,  # This will be set in MainWidget
+            onselect=None,
             interactive=True,
             useblit=True,  
             drag_from_anywhere=True,

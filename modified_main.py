@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QFileDialog, QVBoxLayout, QHBoxLayout, QWidget, QComboBox,
-    QSlider, QRadioButton, QPushButton
+    QSlider, QRadioButton, QPushButton,QButtonGroup
 
 )
 from PyQt5.QtGui import QPixmap, QImage
@@ -12,7 +12,6 @@ from matplotlib.figure import Figure
 from PyQt5.QtCore import Qt
 
 from matplotlib.widgets import RectangleSelector
-from matplotlib.patches import Rectangle
 
 
 class ImageGroup(QWidget):
@@ -29,14 +28,13 @@ class ImageGroup(QWidget):
         self.label.setObjectName("image_label")
 
         self.weight_slider = QSlider(Qt.Orientation.Horizontal)
-
         self.weight_slider.setRange(0, 100)
         self.weight_slider.setValue(0)
         self.weight_slider.setTickInterval(1)
-        self.weight_slider.setTickPosition(QSlider.TickPosition.TicksBelow)        
+        self.weight_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.weight_slider.setFixedWidth(200)
-        self.canvas_group = QVBoxLayout()
 
+        self.canvas_group = QVBoxLayout()
         self.combo_box = QComboBox(self)
         self.combo_box.addItem("Magnitude")
         self.combo_box.addItem("Phase")
@@ -45,7 +43,9 @@ class ImageGroup(QWidget):
         self.combo_box.currentIndexChanged.connect(self.update_canvas)
 
         self.canvas = FigureCanvas(Figure(figsize=(2, 2)))
-        self.canvas.setFixedSize(200,200)
+        self.canvas.setFixedSize(200, 200)
+        self.ax = self.canvas.figure.add_subplot(111)
+
         self.canvas_group.addWidget(self.combo_box)
         self.canvas_group.addWidget(self.canvas)
 
@@ -55,7 +55,6 @@ class ImageGroup(QWidget):
         self.layout.addLayout(self.canvas_group)
 
         self.setLayout(self.layout)
-
         self.magnitude_spectrum = None
         self.phase_spectrum = None
         
@@ -65,6 +64,19 @@ class ImageGroup(QWidget):
         self.start_pos = None        
         self.label.mousePressEvent = self.start_mouse_drag
         self.label.mouseMoveEvent = self.adjust_brightness_contrast
+        
+        # Rectangle selector
+        self.rectangle_selector = RectangleSelector(
+            self.ax,
+            onselect=None,  # This will be set in MainWidget
+            interactive=True,
+            useblit=True,  
+            drag_from_anywhere=True,
+            use_data_coordinates=True,
+            spancoords="pixels"
+        )
+        self.rectangle_selector.set_active(True)
+
 
     def update_canvas(self):
         '''Update the canvas with the selected spectrum'''
@@ -90,6 +102,7 @@ class ImageGroup(QWidget):
         self.start_pos = event.pos()
 
     def adjust_brightness_contrast(self, event):
+
         '''Adjust brightness and contrast based on mouse movement'''
         if self.original_image is None:
             return
@@ -114,7 +127,7 @@ class ImageGroup(QWidget):
         '''Apply brightness and contrast adjustments'''
         adjusted = np.clip(contrast * image + brightness, 0, 255).astype(np.uint8)
         return adjusted
-
+    
     def display_image(self, image):
         '''Update the QLabel with the adjusted image'''
         h, w = image.shape
@@ -142,19 +155,19 @@ class OutPort(QWidget):
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setObjectName("image_label")  
         
+        self.radio_state = False
         self.radio = QRadioButton(label)
-        self.radio.setChecked(False)
-        # self.radio.toggled.connect()
+        self.radio.setChecked(True)
         self.layout.addWidget(self.radio)
         self.layout.addWidget(self.label)
 
         self.setLayout(self.layout)
 
-
 class MainWidget(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
+        
     def initUI(self):
         self.setWindowTitle("Image FFT Viewer")
         self.setGeometry(100, 100, 600, 800)  
@@ -174,39 +187,38 @@ class MainWidget(QMainWindow):
         self.image_group2.label.mouseDoubleClickEvent = lambda event: self.load_image(self.image_group2)
         self.image_group3.label.mouseDoubleClickEvent = lambda event: self.load_image(self.image_group3)
         self.image_group4.label.mouseDoubleClickEvent = lambda event: self.load_image(self.image_group4)
-
+     
         self.out_port1 = OutPort(self, "Port 1")
         self.out_port2 = OutPort(self, "Port 2")
-
+        self.out_port1.radio.setChecked(True)
         v_layout2 = QVBoxLayout()
         v_layout2.addWidget(self.out_port1)
         v_layout2.addWidget(self.out_port2)
         
         mix_button = QPushButton("Mix")
-        select_button = QPushButton("Select")
-        
         mix_button.clicked.connect(self.mix_images)
-        select_button.clicked.connect(self.select_region)
+
+        mode_group = QButtonGroup()
+        region_group = QButtonGroup()
         
         mode_radio1 = QRadioButton("Magnitude / Phase")
         mode_radio1.setChecked(True)
-        # self.mode_radio1.toggled.connect()
+        mode_group.addButton(mode_radio1)
         
         mode_radio2 = QRadioButton("Real / Imaginary")
         mode_radio2.setChecked(False)
-        # self.mode_radio1.toggled.connect()
+        mode_group.addButton(mode_radio2)
         v_layout2.addWidget(mode_radio1)
         v_layout2.addWidget(mode_radio2)
         
         inside_region_radio = QRadioButton("Region inside")
         inside_region_radio.setChecked(True)
-        # self.mode_radio1.toggled.connect()
+        region_group.addButton(inside_region_radio)
         
         outside_region_radio = QRadioButton("Region outside")
         outside_region_radio.setChecked(False)
-        # self.mode_radio1.toggled.connect()
+        region_group.addButton(outside_region_radio)
        
-        v_layout2.addWidget(select_button)
         v_layout2.addWidget(inside_region_radio)
         v_layout2.addWidget(outside_region_radio)
 
@@ -225,20 +237,57 @@ class MainWidget(QMainWindow):
         self.mixed_real = None
         self.mixed_imaginary = None
 
+        self.image_group1.rectangle_selector.onselect = self.on_select
+        self.image_group2.rectangle_selector.onselect = self.on_select
+        self.image_group3.rectangle_selector.onselect = self.on_select
+        self.image_group4.rectangle_selector.onselect = self.on_select
 
+    def on_select(self, eclick, erelease):
+        print('onselect')
+        x0, y0 = eclick.xdata, eclick.ydata
+        x1, y1 = erelease.xdata, erelease.ydata
+
+        print(f"Normalized coordinates (x0, y0): ({x0}, {y0})")
+        print(f"Normalized coordinates (x1, y1): ({x1}, {y1})")
+
+        if x0 == x1 or y0 == y1:
+            print("Selected region has zero width or height. Selection failed.")
+            return
+
+        for i, image_group in enumerate([self.image_group1, self.image_group2, self.image_group3, self.image_group4]):
+            if image_group.magnitude_spectrum is not None:
+                height, width = image_group.magnitude_spectrum.shape
+
+                x_min = int(x0 * width)
+                x_max = int(x1 * width)
+                y_min = int(y0 * height)
+                y_max = int(y1 * height)
+
+                x_min = max(0, min(x_min, width - 1))
+                x_max = max(0, min(x_max, width - 1))
+                y_min = max(0, min(y_min, height - 1))
+                y_max = max(0, min(y_max, height - 1))
+
+                print(f"Image Group {i+1} - Mapped coordinates (x_min, y_min): ({x_min}, {y_min})")
+                print(f"Image Group {i+1} - Mapped coordinates (x_max, y_max): ({x_max}, {y_max})")
+
+                selected_region = image_group.magnitude_spectrum[y_min:y_max, x_min:x_max]
+
+                print(f"Image Group {i+1} - Selected region shape: {selected_region.shape}")            
+            else:
+                print(f"Image Group {i+1} - Magnitude spectrum is not available.")
+
+        for i, image_group in enumerate([self.image_group1, self.image_group2, self.image_group3, self.image_group4]):
+            image_group.rectangle_selector.extents = (x0, x1, y0, y1)
+            image_group.rectangle_selector.update()
 
     def load_image(self, image_group):
-        '''Load an image and calculate its FFT
-        Args:
-            image_group (ImageGroup): ImageGroup object
-        '''
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "", "Images (*.png *.jpg *.jpeg *.bmp *.tiff)")
         if file_path:
             image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
             image_group.set_image(image)  
 
             f = np.fft.fft2(image)
-
             fshift = np.fft.fftshift(f)
             image_group.magnitude_spectrum = 20 * np.log(np.abs(fshift) + 1e-5)
             image_group.phase_spectrum = np.angle(fshift)
@@ -264,8 +313,7 @@ class MainWidget(QMainWindow):
         weight_4 = self.image_group4.weight_slider.value()
         return weight_1, weight_2, weight_3, weight_4, sum(weight_1, weight_2, weight_3, weight_4)
     
-    def select_region(self):
-        pass
+   
     
     
     
@@ -313,11 +361,6 @@ class MainWidget(QMainWindow):
                 self.mixed_real+= (weight_4 / weights_sum) * self.image_group4.real_spectrum
             else:
                 self.mixed_imaginary+= (weight_4 / weights_sum) * self.image_group4.imaginary_spectrum
-        
-        
-        
-        
-        
         
 if __name__ == '__main__':
     app = QApplication(sys.argv)

@@ -52,13 +52,7 @@ class ImageGroup(QWidget):
         self.label.mousePressEvent = self.start_mouse_drag
         self.label.mouseMoveEvent = self.adjust_brightness_contrast
 
-    def update_canvas(self):
-        '''Update the canvas with the selected spectrum'''
-        if self.magnitude_spectrum is not None and self.phase_spectrum is not None:
-            if self.combo_box.currentText() == "Magnitude":
-                self.show_fft(self.magnitude_spectrum)
-            else:
-                self.show_fft(self.phase_spectrum)
+
 
     def show_fft(self, spectrum):
         '''Show the FFT spectrum on the canvas
@@ -122,16 +116,6 @@ class ImageGroup(QWidget):
             else:
                 self.show_fft(self.phase_spectrum)
 
-    def show_fft(self, spectrum):
-        '''Show the FFT spectrum on the canvas
-        Args:
-            spectrum (np.ndarray): FFT spectrum
-        '''
-        self.canvas.figure.clear()
-        ax = self.canvas.figure.add_subplot(111)
-        ax.imshow(spectrum, cmap='gray')
-        ax.axis('off')
-        self.canvas.draw()
 
 
 class MainWidget(QMainWindow):

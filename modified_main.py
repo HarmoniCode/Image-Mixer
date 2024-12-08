@@ -282,10 +282,16 @@ class MainWidget(QMainWindow):
             image_group.rectangle_selector.update()
 
     def load_image(self, image_group):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "", "Images (*.png *.jpg *.jpeg *.bmp *.tiff)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "",
+                                                   "Images (*.png *.jpg *.jpeg *.bmp *.tiff)")
         if file_path:
             image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
-            image_group.set_image(image)  
+
+            # Resize the image to a common shape (e.g., 256x256)
+            common_shape = (256, 256)
+            image = cv2.resize(image, common_shape)
+
+            image_group.set_image(image)
 
             f = np.fft.fft2(image)
             fshift = np.fft.fftshift(f)
@@ -305,63 +311,83 @@ class MainWidget(QMainWindow):
         pixmap = QPixmap.fromImage(qimage)
         label.setPixmap(pixmap)
         label.setScaledContents(True)
-        
+
     def get_weights(self):
-        weight_1  = self.image_group1.weight_slider.value()
+        weight_1 = self.image_group1.weight_slider.value()
         weight_2 = self.image_group2.weight_slider.value()
         weight_3 = self.image_group3.weight_slider.value()
         weight_4 = self.image_group4.weight_slider.value()
-        return weight_1, weight_2, weight_3, weight_4, sum(weight_1, weight_2, weight_3, weight_4)
-    
-   
-    
-    
-    
-    
-    def mix_images(self,mode):
-        self.mixed_magnitude, self.mixed_phase, self.mixed_real, self.mixed_imaginary = 0,0,0,0
-        weight_1, weight_2, weight_3, weight_4, weights_sum = self.get_weights()
-        if mode == "Mag and Phase":
-            if  self.image_group1.combo_box.currentText() == "Magnitude":
-                self.mixed_magnitude+= (weight_1 / weights_sum) * self.image_group1.magnitude_spectrum
+        weights_sum = sum([weight_1, weight_2, weight_3, weight_4])
+        return weight_1, weight_2, weight_3, weight_4, weights_sum
+
+    import numpy as np
+
+    import numpy as np
+
+    import numpy as np
+
+    def mix_images(self):
+        try:
+            # Initialize mixed components
+            self.mixed_magnitude = np.zeros_like(self.image_group1.magnitude_spectrum)
+            self.mixed_phase = np.zeros_like(self.image_group1.phase_spectrum)
+            self.mixed_real = np.zeros_like(self.image_group1.magnitude_spectrum)
+            self.mixed_imaginary = np.zeros_like(self.image_group1.magnitude_spectrum)
+
+            # Get normalized weights
+            weight_1, weight_2, weight_3, weight_4, weights_sum = self.get_weights()
+            if weights_sum == 0:
+                print("Weights sum is zero. Cannot divide by zero.")
+                return
+
+            normalized_weights = [weight / weights_sum for weight in [weight_1, weight_2, weight_3, weight_4]]
+
+            # Process image groups
+            for group, weight in zip(
+                    [self.image_group1, self.image_group2, self.image_group3, self.image_group4],
+                    normalized_weights
+            ):
+                selected_option = group.combo_box.currentText()
+                if selected_option == "Magnitude":
+                    self.mixed_magnitude += weight * group.magnitude_spectrum
+                elif selected_option == "Phase":
+                    self.mixed_phase += weight * group.phase_spectrum
+                elif selected_option == "Real":
+                    spectrum = group.magnitude_spectrum * np.exp(1j * group.phase_spectrum)
+                    self.mixed_real += weight * np.real(np.fft.ifft2(np.fft.ifftshift(spectrum)))
+                elif selected_option == "Imaginary":
+                    spectrum = group.magnitude_spectrum * np.exp(1j * group.phase_spectrum)
+                    self.mixed_imaginary += weight * np.imag(np.fft.ifft2(np.fft.ifftshift(spectrum)))
+                else:
+                    print(f"Invalid option: {selected_option}")
+
+            # Reconstruct the mixed image
+            if self.out_port1.radio.isChecked():
+                if self.image_group1.combo_box.currentText() in ["Magnitude", "Phase"]:
+                    # Combine magnitude and phase
+                    fshift = self.mixed_magnitude * np.exp(1j * self.mixed_phase)
+                else:
+                    # Combine real and imaginary parts
+                    fshift = self.mixed_real + 1j * self.mixed_imaginary
+
+                # Perform inverse FFT
+                f_ishift = np.fft.ifftshift(fshift)
+                img_back = np.fft.ifft2(f_ishift)
+                img_back = np.abs(img_back)
+
+                # Normalize output image
+                img_back = img_back / np.max(img_back) * 255
+
+                # Display the reconstructed image
+                self.show_image(img_back.astype(np.uint8), self.out_port1.label)
             else:
-                self.mixed_phase+= (weight_1 / weights_sum) * self.image_group1.phase_spectrum
-                
-            if  self.image_group2.combo_box.currentText() == "Magnitude":
-                self.mixed_magnitude+= (weight_2 / weights_sum) * self.image_group2.magnitude_spectrum
-            else:
-                self.mixed_phase+= (weight_2 / weights_sum) * self.image_group2.phase_spectrum
-            
-            if  self.image_group3.combo_box.currentText() == "Magnitude":
-                self.mixed_magnitude+= (weight_3 / weights_sum) * self.image_group3.magnitude_spectrum
-            else:
-                self.mixed_phase+= (weight_3 / weights_sum) * self.image_group3.phase_spectrum
-            
-            if  self.image_group4.combo_box.currentText() == "Magnitude":
-                self.mixed_magnitude+= (weight_4 / weights_sum) * self.image_group4.magnitude_spectrum
-            else:
-                self.mixed_phase+= (weight_4 / weights_sum) * self.image_group4.phase_spectrum
-        else:
-            if  self.image_group1.combo_box.currentText() == "Real":
-                self.mixed_real+= (weight_1 / weights_sum) * self.image_group1.real_spectrum
-            else:
-                self.mixed_imaginary+= (weight_1 / weights_sum) * self.image_group1.imaginary_spectrum
-                
-            if  self.image_group2.combo_box.currentText() == "Real":
-                self.mixed_real+= (weight_2 / weights_sum) * self.image_group2.real_spectrum
-            else:
-                self.mixed_imaginary+= (weight_2 / weights_sum) * self.image_group2.imaginary_spectrum
-            
-            if  self.image_group3.combo_box.currentText() == "Real":
-                self.mixed_real+= (weight_3 / weights_sum) * self.image_group3.real_spectrum
-            else:
-                self.mixed_imaginary+= (weight_3 / weights_sum) * self.image_group3.imaginary_spectrum
-            
-            if  self.image_group4.combo_box.currentText() == "Real":
-                self.mixed_real+= (weight_4 / weights_sum) * self.image_group4.real_spectrum
-            else:
-                self.mixed_imaginary+= (weight_4 / weights_sum) * self.image_group4.imaginary_spectrum
-        
+                print("Output port radio button is not checked.")
+        except AttributeError as e:
+            print(f"AttributeError occurred: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = MainWidget()

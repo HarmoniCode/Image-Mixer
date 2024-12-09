@@ -9,6 +9,8 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtGui import QPixmap, QImage
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+
 from PyQt5.QtCore import Qt
 
 from matplotlib.widgets import RectangleSelector
@@ -306,6 +308,8 @@ class MainWidget(QMainWindow):
             image (np.ndarray): Image
             label (QLabel): QLabel object
         '''
+        print("Image passed to show_image stats - Min:", np.min(image), "Max:", np.max(image))
+
         h, w = image.shape
         qimage = QImage(image.data, w, h, w, QImage.Format_Grayscale8)
         pixmap = QPixmap.fromImage(qimage)
@@ -320,13 +324,11 @@ class MainWidget(QMainWindow):
         weights_sum = sum([weight_1, weight_2, weight_3, weight_4])
         return weight_1, weight_2, weight_3, weight_4, weights_sum
 
+
     def mix_images(self):
         try:
-            self.progress_bar.setValue(0) # THIS PART SHOULD BE
-            for i in range(100):       # WHEN 
-                self.progress_bar.setValue(i)   # DIVIDING THE 
-                self.progress_bar.setFormat(f"Loading: {i}%") # THE RECONSTRUCTED REGION INTO CHUNKS
-                
+            self.progress_bar.setValue(0)
+
             # Initialize mixed components
             self.mixed_magnitude = np.zeros_like(self.image_group1.magnitude_spectrum)
             self.mixed_phase = np.zeros_like(self.image_group1.phase_spectrum)
@@ -341,29 +343,49 @@ class MainWidget(QMainWindow):
 
             normalized_weights = [weight / weights_sum for weight in [weight_1, weight_2, weight_3, weight_4]]
 
+            # Ensure selected_region is set
+            if self.selected_region is None:
+                print("No region selected.")
+                return
+
+            y_min, y_max, x_min, x_max = self.selected_region
+
             # Process image groups
             for group, weight in zip(
                     [self.image_group1, self.image_group2, self.image_group3, self.image_group4],
                     normalized_weights
             ):
                 selected_option = group.combo_box.currentText()
+                if y_min >= y_max or x_min >= x_max:
+                    print("Invalid region boundaries.")
+                    return
+
+                # Process based on combo box selection
                 if selected_option == "Magnitude":
-                    self.mixed_magnitude += weight * group.magnitude_spectrum[
-                    self.selected_region[0] : self.selected_region[1], self.selected_region[2] : self.selected_region[3]]
+                    region = group.magnitude_spectrum[y_min:y_max, x_min:x_max]
+                    resized_region = cv2.resize(region, (256, 256))
+                    self.mixed_magnitude += weight * resized_region
                 elif selected_option == "Phase":
-                    self.mixed_phase += weight * group.phase_spectrum
+                    region = group.phase_spectrum[y_min:y_max, x_min:x_max]
+                    resized_region = cv2.resize(region, (256, 256))
+                    self.mixed_phase += weight * resized_region
                 elif selected_option == "Real":
                     spectrum = group.magnitude_spectrum * np.exp(1j * group.phase_spectrum)
-                    self.mixed_real += weight * np.real(np.fft.ifft2(np.fft.ifftshift(spectrum)))
+                    real_part = np.real(np.fft.ifft2(np.fft.ifftshift(spectrum)))
+                    region = real_part[y_min:y_max, x_min:x_max]
+                    resized_region = cv2.resize(region, (256, 256))
+                    self.mixed_real += weight * resized_region
                 elif selected_option == "Imaginary":
                     spectrum = group.magnitude_spectrum * np.exp(1j * group.phase_spectrum)
-                    self.mixed_imaginary += weight * np.imag(np.fft.ifft2(np.fft.ifftshift(spectrum)))
+                    imaginary_part = np.imag(np.fft.ifft2(np.fft.ifftshift(spectrum)))
+                    region = imaginary_part[y_min:y_max, x_min:x_max]
+                    resized_region = cv2.resize(region, (256, 256))
+                    self.mixed_imaginary += weight * resized_region
                 else:
                     print(f"Invalid option: {selected_option}")
 
             # Reconstruct the mixed image
             if self.out_port_1.radio.isChecked():
-                print('heeeeee')
                 if self.image_group1.combo_box.currentText() in ["Magnitude", "Phase"]:
                     # Combine magnitude and phase
                     fshift = self.mixed_magnitude * np.exp(1j * self.mixed_phase)
@@ -375,19 +397,35 @@ class MainWidget(QMainWindow):
                 f_ishift = np.fft.ifftshift(fshift)
                 img_back = np.fft.ifft2(f_ishift)
                 img_back = np.abs(img_back)
+                # Normalize the output image to the full 0–255 range
+                img_back = (img_back - np.min(img_back)) / (np.max(img_back) - np.min(img_back)) * 255
+
+                print("Reconstructed image stats - Min:", np.min(img_back), "Max:", np.max(img_back))
 
                 # Normalize output image
-                img_back = img_back / np.max(img_back) * 255
+                output_image = img_back.astype(np.uint8)
+                img_eq = cv2.equalizeHist(output_image)
 
-                # Display the reconstructed image
-                self.show_image(img_back.astype(np.uint8), self.out_port_1.label)
+                # Debug: Check if the image contains valid pixel values
+                print("Output image stats - Min:", np.min(output_image), "Max:", np.max(output_image))
+
+                # Show the image
+                self.show_image(img_eq, self.out_port_1.label)
+                
             else:
                 print("Output port radio button is not checked.")
+
+
         except AttributeError as e:
             print(f"AttributeError occurred: {e}")
         except Exception as e:
             print(f"An unexpected error occurred: {e}")
-
+        print (self.mixed_magnitude)
+        print (self.mixed_phase)
+        print(np.max(img_back))
+        print("Weights:", weight_1, weight_2, weight_3, weight_4)
+        print("Weights sum:", weights_sum)
+        print("Normalized weights:", normalized_weights)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

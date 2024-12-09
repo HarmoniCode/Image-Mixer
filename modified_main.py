@@ -3,7 +3,7 @@ import numpy as np
 import cv2
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QLabel, QFileDialog, QVBoxLayout, QHBoxLayout, QWidget, QComboBox,
-    QSlider, QRadioButton, QPushButton,QButtonGroup
+    QSlider, QRadioButton, QPushButton,QButtonGroup,QProgressBar
 
 )
 from PyQt5.QtGui import QPixmap, QImage
@@ -57,7 +57,6 @@ class ImageGroup(QWidget):
         self.setLayout(self.layout)
         self.magnitude_spectrum = None
         self.phase_spectrum = None
-        
         self.brightness = 0  
         self.contrast = 1.0  
         self.original_image = None  
@@ -73,7 +72,7 @@ class ImageGroup(QWidget):
             useblit=True,  
             drag_from_anywhere=True,
             use_data_coordinates=True,
-            spancoords="pixels"
+            spancoords = 'data'
         )
         self.rectangle_selector.set_active(True)
 
@@ -151,13 +150,13 @@ class OutPort(QWidget):
         self.label.setMaximumWidth(600)
         self.label.setMinimumWidth(400)
         self.label.setMaximumHeight(400)
+        
         self.label.setStyleSheet("border: 1px solid black;")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setObjectName("image_label")  
         
         self.radio_state = False
         self.radio = QRadioButton(label)
-        self.radio.setChecked(True)
         self.layout.addWidget(self.radio)
         self.layout.addWidget(self.label)
 
@@ -188,42 +187,54 @@ class MainWidget(QMainWindow):
         self.image_group3.label.mouseDoubleClickEvent = lambda event: self.load_image(self.image_group3)
         self.image_group4.label.mouseDoubleClickEvent = lambda event: self.load_image(self.image_group4)
      
-        self.out_port1 = OutPort(self, "Port 1")
-        self.out_port2 = OutPort(self, "Port 2")
-        self.out_port1.radio.setChecked(True)
+        self.out_port_1 = OutPort(self, "Port 1")
+        self.out_port_2 = OutPort(self, "Port 2")
+        self.out_port_1.radio.setChecked(True)
+        self.out_port_2.radio.setChecked(False)
+      
         v_layout2 = QVBoxLayout()
-        v_layout2.addWidget(self.out_port1)
-        v_layout2.addWidget(self.out_port2)
+        v_layout2.addWidget(self.out_port_1)
+        v_layout2.addWidget(self.out_port_2)
         
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setValue(0)
         mix_button = QPushButton("Mix")
         mix_button.clicked.connect(self.mix_images)
+        
+        self.outport_group = QButtonGroup(self)
+        self.mode_group = QButtonGroup(self)
+        self.region_group = QButtonGroup(self)
+        
+        self.outport_group.addButton(self.out_port_1.radio)
+        self.outport_group.addButton(self.out_port_2.radio)
 
-        mode_group = QButtonGroup()
-        region_group = QButtonGroup()
+        self.mode_radio_1 = QRadioButton("Magnitude / Phase", self)
+        self.mode_radio_1.setChecked(True)
+
+        self.mode_group.addButton(self.mode_radio_1)
         
-        mode_radio1 = QRadioButton("Magnitude / Phase")
-        mode_radio1.setChecked(True)
-        mode_group.addButton(mode_radio1)
+        self.mode_radio_2 = QRadioButton("Real / Imaginary", self)
+        self.mode_radio_2.setChecked(False)
+
+        self.mode_group.addButton(self.mode_radio_2)
+        v_layout2.addWidget(self.mode_radio_1)
+        v_layout2.addWidget(self.mode_radio_2)
         
-        mode_radio2 = QRadioButton("Real / Imaginary")
-        mode_radio2.setChecked(False)
-        mode_group.addButton(mode_radio2)
-        v_layout2.addWidget(mode_radio1)
-        v_layout2.addWidget(mode_radio2)
+        self.inside_region_radio = QRadioButton("Region inside", self)
+        self.inside_region_radio.setChecked(True)
+        self.region_group.addButton(self.inside_region_radio)
         
-        inside_region_radio = QRadioButton("Region inside")
-        inside_region_radio.setChecked(True)
-        region_group.addButton(inside_region_radio)
-        
-        outside_region_radio = QRadioButton("Region outside")
-        outside_region_radio.setChecked(False)
-        region_group.addButton(outside_region_radio)
+        self.outside_region_radio = QRadioButton("Region outside", self)
+        self.outside_region_radio.setChecked(False)
+
+        self.region_group.addButton(self.outside_region_radio)
        
-        v_layout2.addWidget(inside_region_radio)
-        v_layout2.addWidget(outside_region_radio)
+        v_layout2.addWidget(self.inside_region_radio)
+        v_layout2.addWidget(self.outside_region_radio)
 
         v_layout2.addWidget(mix_button)
-        
+        v_layout2.addWidget(self.progress_bar)
+
         main_layout = QHBoxLayout()
         main_layout.addLayout(v_layout1)
         main_layout.addLayout(v_layout2)
@@ -236,6 +247,7 @@ class MainWidget(QMainWindow):
         self.mixed_phase = None
         self.mixed_real = None
         self.mixed_imaginary = None
+        self.selected_region = None
 
         self.image_group1.rectangle_selector.onselect = self.on_select
         self.image_group2.rectangle_selector.onselect = self.on_select
@@ -243,7 +255,6 @@ class MainWidget(QMainWindow):
         self.image_group4.rectangle_selector.onselect = self.on_select
 
     def on_select(self, eclick, erelease):
-        print('onselect')
         x0, y0 = eclick.xdata, eclick.ydata
         x1, y1 = erelease.xdata, erelease.ydata
 
@@ -251,41 +262,35 @@ class MainWidget(QMainWindow):
         print(f"Normalized coordinates (x1, y1): ({x1}, {y1})")
 
         if x0 == x1 or y0 == y1:
-            print("Selected region has zero width or height. Selection failed.")
             return
+        height, width = self.image_group1.magnitude_spectrum.shape
+        x_min = round(x0 * width)
+        x_max = round(x1 * width)
+        y_min = round(y0 * height)
+        y_max = round(y1 * height)
 
-        for i, image_group in enumerate([self.image_group1, self.image_group2, self.image_group3, self.image_group4]):
-            if image_group.magnitude_spectrum is not None:
-                height, width = image_group.magnitude_spectrum.shape
+        x_min = max(0, min(x_min, width - 1))
+        x_max = max(0, min(x_max, width - 1))
+        y_min = max(0, min(y_min, height - 1))
+        y_max = max(0, min(y_max, height - 1))
+        self.selected_region = [y_min, y_max, x_min, x_max]
 
-                x_min = int(x0 * width)
-                x_max = int(x1 * width)
-                y_min = int(y0 * height)
-                y_max = int(y1 * height)
 
-                x_min = max(0, min(x_min, width - 1))
-                x_max = max(0, min(x_max, width - 1))
-                y_min = max(0, min(y_min, height - 1))
-                y_max = max(0, min(y_max, height - 1))
-
-                print(f"Image Group {i+1} - Mapped coordinates (x_min, y_min): ({x_min}, {y_min})")
-                print(f"Image Group {i+1} - Mapped coordinates (x_max, y_max): ({x_max}, {y_max})")
-
-                selected_region = image_group.magnitude_spectrum[y_min:y_max, x_min:x_max]
-
-                print(f"Image Group {i+1} - Selected region shape: {selected_region.shape}")            
-            else:
-                print(f"Image Group {i+1} - Magnitude spectrum is not available.")
-
-        for i, image_group in enumerate([self.image_group1, self.image_group2, self.image_group3, self.image_group4]):
+        for image_group in [self.image_group1, self.image_group2, self.image_group3, self.image_group4]:
             image_group.rectangle_selector.extents = (x0, x1, y0, y1)
             image_group.rectangle_selector.update()
 
     def load_image(self, image_group):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "", "Images (*.png *.jpg *.jpeg *.bmp *.tiff)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "",
+                                                   "Images (*.png *.jpg *.jpeg *.bmp *.tiff)")
         if file_path:
             image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
-            image_group.set_image(image)  
+
+            # Resize the image to a common shape (e.g., 256x256)
+            common_shape = (256, 256)
+            image = cv2.resize(image, common_shape)
+
+            image_group.set_image(image)
 
             f = np.fft.fft2(image)
             fshift = np.fft.fftshift(f)
@@ -305,63 +310,83 @@ class MainWidget(QMainWindow):
         pixmap = QPixmap.fromImage(qimage)
         label.setPixmap(pixmap)
         label.setScaledContents(True)
-        
+
     def get_weights(self):
-        weight_1  = self.image_group1.weight_slider.value()
+        weight_1 = self.image_group1.weight_slider.value()
         weight_2 = self.image_group2.weight_slider.value()
         weight_3 = self.image_group3.weight_slider.value()
         weight_4 = self.image_group4.weight_slider.value()
-        return weight_1, weight_2, weight_3, weight_4, sum(weight_1, weight_2, weight_3, weight_4)
-    
-   
-    
-    
-    
-    
-    def mix_images(self,mode):
-        self.mixed_magnitude, self.mixed_phase, self.mixed_real, self.mixed_imaginary = 0,0,0,0
-        weight_1, weight_2, weight_3, weight_4, weights_sum = self.get_weights()
-        if mode == "Mag and Phase":
-            if  self.image_group1.combo_box.currentText() == "Magnitude":
-                self.mixed_magnitude+= (weight_1 / weights_sum) * self.image_group1.magnitude_spectrum
-            else:
-                self.mixed_phase+= (weight_1 / weights_sum) * self.image_group1.phase_spectrum
+        weights_sum = sum([weight_1, weight_2, weight_3, weight_4])
+        return weight_1, weight_2, weight_3, weight_4, weights_sum
+
+    def mix_images(self):
+        try:
+            self.progress_bar.setValue(0) # THIS PART SHOULD BE
+            for i in range(100):       # WHEN 
+                self.progress_bar.setValue(i)   # DIVIDING THE 
+                self.progress_bar.setFormat(f"Loading: {i}%") # THE RECONSTRUCTED REGION INTO CHUNKS
                 
-            if  self.image_group2.combo_box.currentText() == "Magnitude":
-                self.mixed_magnitude+= (weight_2 / weights_sum) * self.image_group2.magnitude_spectrum
+            # Initialize mixed components
+            self.mixed_magnitude = np.zeros_like(self.image_group1.magnitude_spectrum)
+            self.mixed_phase = np.zeros_like(self.image_group1.phase_spectrum)
+            self.mixed_real = np.zeros_like(self.image_group1.magnitude_spectrum)
+            self.mixed_imaginary = np.zeros_like(self.image_group1.magnitude_spectrum)
+
+            # Get normalized weights
+            weight_1, weight_2, weight_3, weight_4, weights_sum = self.get_weights()
+            if weights_sum == 0:
+                print("Weights sum is zero. Cannot divide by zero.")
+                return
+
+            normalized_weights = [weight / weights_sum for weight in [weight_1, weight_2, weight_3, weight_4]]
+
+            # Process image groups
+            for group, weight in zip(
+                    [self.image_group1, self.image_group2, self.image_group3, self.image_group4],
+                    normalized_weights
+            ):
+                selected_option = group.combo_box.currentText()
+                if selected_option == "Magnitude":
+                    self.mixed_magnitude += weight * group.magnitude_spectrum[
+                    self.selected_region[0] : self.selected_region[1], self.selected_region[2] : self.selected_region[3]]
+                elif selected_option == "Phase":
+                    self.mixed_phase += weight * group.phase_spectrum
+                elif selected_option == "Real":
+                    spectrum = group.magnitude_spectrum * np.exp(1j * group.phase_spectrum)
+                    self.mixed_real += weight * np.real(np.fft.ifft2(np.fft.ifftshift(spectrum)))
+                elif selected_option == "Imaginary":
+                    spectrum = group.magnitude_spectrum * np.exp(1j * group.phase_spectrum)
+                    self.mixed_imaginary += weight * np.imag(np.fft.ifft2(np.fft.ifftshift(spectrum)))
+                else:
+                    print(f"Invalid option: {selected_option}")
+
+            # Reconstruct the mixed image
+            if self.out_port_1.radio.isChecked():
+                if self.image_group1.combo_box.currentText() in ["Magnitude", "Phase"]:
+                    # Combine magnitude and phase
+                    fshift = self.mixed_magnitude * np.exp(1j * self.mixed_phase)
+                else:
+                    # Combine real and imaginary parts
+                    fshift = self.mixed_real + 1j * self.mixed_imaginary
+
+                # Perform inverse FFT
+                f_ishift = np.fft.ifftshift(fshift)
+                img_back = np.fft.ifft2(f_ishift)
+                img_back = np.abs(img_back)
+
+                # Normalize output image
+                img_back = img_back / np.max(img_back) * 255
+
+                # Display the reconstructed image
+                self.show_image(img_back.astype(np.uint8), self.out_port_1.label)
             else:
-                self.mixed_phase+= (weight_2 / weights_sum) * self.image_group2.phase_spectrum
-            
-            if  self.image_group3.combo_box.currentText() == "Magnitude":
-                self.mixed_magnitude+= (weight_3 / weights_sum) * self.image_group3.magnitude_spectrum
-            else:
-                self.mixed_phase+= (weight_3 / weights_sum) * self.image_group3.phase_spectrum
-            
-            if  self.image_group4.combo_box.currentText() == "Magnitude":
-                self.mixed_magnitude+= (weight_4 / weights_sum) * self.image_group4.magnitude_spectrum
-            else:
-                self.mixed_phase+= (weight_4 / weights_sum) * self.image_group4.phase_spectrum
-        else:
-            if  self.image_group1.combo_box.currentText() == "Real":
-                self.mixed_real+= (weight_1 / weights_sum) * self.image_group1.real_spectrum
-            else:
-                self.mixed_imaginary+= (weight_1 / weights_sum) * self.image_group1.imaginary_spectrum
-                
-            if  self.image_group2.combo_box.currentText() == "Real":
-                self.mixed_real+= (weight_2 / weights_sum) * self.image_group2.real_spectrum
-            else:
-                self.mixed_imaginary+= (weight_2 / weights_sum) * self.image_group2.imaginary_spectrum
-            
-            if  self.image_group3.combo_box.currentText() == "Real":
-                self.mixed_real+= (weight_3 / weights_sum) * self.image_group3.real_spectrum
-            else:
-                self.mixed_imaginary+= (weight_3 / weights_sum) * self.image_group3.imaginary_spectrum
-            
-            if  self.image_group4.combo_box.currentText() == "Real":
-                self.mixed_real+= (weight_4 / weights_sum) * self.image_group4.real_spectrum
-            else:
-                self.mixed_imaginary+= (weight_4 / weights_sum) * self.image_group4.imaginary_spectrum
-        
+                print("Output port radio button is not checked.")
+        except AttributeError as e:
+            print(f"AttributeError occurred: {e}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = MainWidget()

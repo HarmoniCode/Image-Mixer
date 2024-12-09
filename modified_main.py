@@ -355,16 +355,15 @@ class MainWidget(QMainWindow):
         weights_sum = sum([weight_1, weight_2, weight_3, weight_4])
         return weight_1, weight_2, weight_3, weight_4, weights_sum
 
-
     def mix_images(self):
         try:
             self.progress_bar.setValue(0)
 
             # Initialize mixed components
-            self.mixed_magnitude = np.zeros_like(self.image_group1.magnitude_spectrum)
-            self.mixed_phase = np.zeros_like(self.image_group1.phase_spectrum)
-            self.mixed_real = np.zeros_like(self.image_group1.magnitude_spectrum)
-            self.mixed_imaginary = np.zeros_like(self.image_group1.magnitude_spectrum)
+            self.mixed_magnitude = np.zeros((256, 256), dtype=np.float64)
+            self.mixed_phase = np.zeros((256, 256), dtype=np.float64)
+            self.mixed_real = np.zeros((256, 256), dtype=np.float64)
+            self.mixed_imaginary = np.zeros((256, 256), dtype=np.float64)
 
             # Get normalized weights
             weight_1, weight_2, weight_3, weight_4, weights_sum = self.get_weights()
@@ -372,13 +371,17 @@ class MainWidget(QMainWindow):
                 print("Weights sum is zero. Cannot divide by zero.")
                 return
 
-            normalized_weights = [ 2 * weight / weights_sum for weight in [weight_1, weight_2, weight_3, weight_4]]
+            normalized_weights = [2 * weight / weights_sum for weight in [weight_1, weight_2, weight_3, weight_4]]
 
             # Ensure selected_region is set
             if self.selected_region is None:
-                y_min, y_max, x_min, x_max = 0, 255, 0, 255
+                y_min, y_max, x_min, x_max = 0, 256, 0, 256
             else:
                 y_min, y_max, x_min, x_max = self.selected_region
+                if y_min >= y_max or x_min >= x_max:
+                    print("Invalid region boundaries.")
+                    return
+                print(f"Selected region: y=({y_min}-{y_max}), x=({x_min}-{x_max})")
 
             # Process image groups
             for group, weight in zip(
@@ -386,9 +389,6 @@ class MainWidget(QMainWindow):
                     normalized_weights
             ):
                 selected_option = group.combo_box.currentText()
-                if y_min >= y_max or x_min >= x_max:
-                    print("Invalid region boundaries.")
-                    return
 
                 # Process based on combo box selection
                 if selected_option == "Magnitude":
@@ -413,43 +413,46 @@ class MainWidget(QMainWindow):
                     self.mixed_imaginary += weight * resized_region
                 else:
                     print(f"Invalid option: {selected_option}")
+                    return
+
+            # Debugging intermediate results
+            print("Mixed magnitude stats - Min:", np.min(self.mixed_magnitude), "Max:", np.max(self.mixed_magnitude))
+            print("Mixed phase stats - Min:", np.min(self.mixed_phase), "Max:", np.max(self.mixed_phase))
 
             # Reconstruct the mixed image
             if self.out_port_1.radio.isChecked():
                 if self.image_group1.combo_box.currentText() in ["Magnitude", "Phase"]:
-                    # Combine magnitude and phase
+                    # Combine mixed magnitude and phase
                     fshift = self.mixed_magnitude * np.exp(1j * self.mixed_phase)
                 else:
-                    # Combine real and imaginary parts
+                    # Combine mixed real and imaginary parts
                     fshift = self.mixed_real + 1j * self.mixed_imaginary
 
                 # Perform inverse FFT
                 f_ishift = np.fft.ifftshift(fshift)
                 img_back = np.fft.ifft2(f_ishift)
                 img_back = np.abs(img_back)
+
                 # Normalize the output image to the full 0–255 range
                 img_back = (img_back - np.min(img_back)) / (np.max(img_back) - np.min(img_back)) * 255
 
                 print("Reconstructed image stats - Min:", np.min(img_back), "Max:", np.max(img_back))
 
-                # Normalize output image
+                # Convert to uint8 for display
                 output_image = img_back.astype(np.uint8)
+
+                # Apply optional histogram equalization
                 img_eq = cv2.equalizeHist(output_image)
 
-                # Debug: Check if the image contains valid pixel values
-                print("Output image stats - Min:", np.min(output_image), "Max:", np.max(output_image))
+                # Debug output image stats
+                print("Final output image stats - Min:", np.min(img_eq), "Max:", np.max(img_eq))
 
                 # Show the image
                 self.show_image(img_eq, self.out_port_1.label)
-                
-            else:
-                print("Output port radio button is not checked.")
 
-
-        except AttributeError as e:
-            print(f"AttributeError occurred: {e}")
         except Exception as e:
-            print(f"An unexpected error occurred: {e}")
+            print("Error during image mixing:", str(e))
+
         print (self.mixed_magnitude)
         print (self.mixed_phase)
         print(np.max(img_back))

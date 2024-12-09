@@ -263,22 +263,23 @@ class MainWidget(QMainWindow):
 
         if x0 == x1 or y0 == y1:
             return
-        height, width = self.image_group1.magnitude_spectrum.shape
-        x_min = round(x0 * width)
-        x_max = round(x1 * width)
-        y_min = round(y0 * height)
-        y_max = round(y1 * height)
-
-        x_min = max(0, min(x_min, width - 1))
-        x_max = max(0, min(x_max, width - 1))
-        y_min = max(0, min(y_min, height - 1))
-        y_max = max(0, min(y_max, height - 1))
-        self.selected_region = [y_min, y_max, x_min, x_max]
-
-
         for image_group in [self.image_group1, self.image_group2, self.image_group3, self.image_group4]:
-            image_group.rectangle_selector.extents = (x0, x1, y0, y1)
-            image_group.rectangle_selector.update()
+            if image_group.magnitude_spectrum is not None:
+                height, width = self.image_group1.magnitude_spectrum.shape
+                x_min = round(x0 * width)
+                x_max = round(x1 * width)
+                y_min = round(y0 * height)
+                y_max = round(y1 * height)
+
+                x_min = max(0, min(x_min, width - 1))
+                x_max = max(0, min(x_max, width - 1))
+                y_min = max(0, min(y_min, height - 1))
+                y_max = max(0, min(y_max, height - 1))
+                self.selected_region = [y_min, y_max, x_min, x_max]
+
+
+                image_group.rectangle_selector.extents = (x0, x1, y0, y1)
+                image_group.rectangle_selector.update()
 
     def load_image(self, image_group):
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Image File", "",
@@ -362,6 +363,7 @@ class MainWidget(QMainWindow):
 
             # Reconstruct the mixed image
             if self.out_port_1.radio.isChecked():
+                print('heeeeee')
                 if self.image_group1.combo_box.currentText() in ["Magnitude", "Phase"]:
                     # Combine magnitude and phase
                     fshift = self.mixed_magnitude * np.exp(1j * self.mixed_phase)

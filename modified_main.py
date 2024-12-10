@@ -149,7 +149,7 @@ class OutPort(QWidget):
         self.layout = QVBoxLayout()
 
         self.label = QLabel(label, self)
-        self.label.setMaximumWidth(600)
+        self.label.setMaximumWidth(400)
         self.label.setMinimumWidth(400)
         self.label.setMaximumHeight(400)
         
@@ -420,35 +420,36 @@ class MainWidget(QMainWindow):
             print("Mixed phase stats - Min:", np.min(self.mixed_phase), "Max:", np.max(self.mixed_phase))
 
             # Reconstruct the mixed image
-            if self.out_port_1.radio.isChecked():
-                if self.image_group1.combo_box.currentText() in ["Magnitude", "Phase"]:
+            if self.image_group1.combo_box.currentText() in ["Magnitude", "Phase"]:
                     # Combine mixed magnitude and phase
                     fshift = self.mixed_magnitude * np.exp(1j * self.mixed_phase)
-                else:
+            else:
                     # Combine mixed real and imaginary parts
                     fshift = self.mixed_real + 1j * self.mixed_imaginary
 
                 # Perform inverse FFT
-                f_ishift = np.fft.ifftshift(fshift)
-                img_back = np.fft.ifft2(f_ishift)
-                img_back = np.abs(img_back)
+            f_ishift = np.fft.ifftshift(fshift)
+            img_back = np.fft.ifft2(f_ishift)
+            img_back = np.abs(img_back)
 
-                # Normalize the output image to the full 0–255 range
-                img_back = (img_back - np.min(img_back)) / (np.max(img_back) - np.min(img_back)) * 255
+            # Normalize the output image to the full 0–255 range
+            img_back = (img_back - np.min(img_back)) / (np.max(img_back) - np.min(img_back)) * 255
 
-                print("Reconstructed image stats - Min:", np.min(img_back), "Max:", np.max(img_back))
+            print("Reconstructed image stats - Min:", np.min(img_back), "Max:", np.max(img_back))
 
-                # Convert to uint8 for display
-                output_image = img_back.astype(np.uint8)
+            # Convert to uint8 for display
+            output_image = img_back.astype(np.uint8)
 
-                # Apply optional histogram equalization
-                img_eq = cv2.equalizeHist(output_image)
+            # Apply optional histogram equalization
+            img_eq = cv2.equalizeHist(output_image)
 
-                # Debug output image stats
-                print("Final output image stats - Min:", np.min(img_eq), "Max:", np.max(img_eq))
+            # Debug output image stats
+            print("Final output image stats - Min:", np.min(img_eq), "Max:", np.max(img_eq))
 
-                # Show the image
+            if self.out_port_1.radio.isChecked():
                 self.show_image(img_eq, self.out_port_1.label)
+            elif self.out_port_2.radio.isChecked():
+                self.show_image(img_eq, self.out_port_2.label)
 
         except Exception as e:
             print("Error during image mixing:", str(e))

@@ -18,16 +18,17 @@ class ImageData(QWidget):
         self.transformed = None
 
         self.label = QLabel("Image", self.image)
-        self.label.setMaximumWidth(200)
-        self.label.setMinimumWidth(150)
-        self.label.setMaximumHeight(200)
+        self.label.setMaximumWidth(250)
+        self.label.setMinimumWidth(250)
+        self.label.setMaximumHeight(250)
         self.label.setStyleSheet("border: 1px solid black;")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label.setObjectName("image_label")
 
         self.component_canvas = FigureCanvas(Figure(figsize=(2, 2)))
-        self.component_canvas.setFixedSize(200, 200)
+        self.component_canvas.setFixedSize(250, 250)
         self.ax = self.component_canvas.figure.add_subplot(111)
+        self.ax.axis('off') 
 
 
         self.combo_box = QComboBox()
@@ -143,13 +144,15 @@ class ImageReconstructionApp(QWidget):
         self.setGeometry(200, 200, 1000, 600)
 
         self.right_frame = QFrame()
-        self.right_frame.setMaximumWidth(400)
-        self.right_frame.setMinimumWidth(400)
+        self.right_frame.setMaximumWidth(350)
+        self.right_frame.setMinimumWidth(350)
 
         self.right_layout = QVBoxLayout()
         self.right_frame.setLayout(self.right_layout)
 
         self.left_frame = QFrame()
+        self.left_frame.setMaximumWidth(350)
+        self.left_frame.setMinimumWidth(350)
         self.left_layout = QVBoxLayout()
         self.left_frame.setLayout(self.left_layout)
 
@@ -172,7 +175,6 @@ class ImageReconstructionApp(QWidget):
         self.output_port_1 = outputPort()
         self.output_port_2 = outputPort()
 
-        self.process_button = QPushButton("Process and Reconstruct", self)
         images=[self.image_1, self.image_2, self.image_3, self.image_4]
 
 

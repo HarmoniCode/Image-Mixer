@@ -49,14 +49,20 @@ class ImageData(QWidget):
 
         self.setLayout(self.layout)
 
-    def load_image(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.bmp)")
+
+
+
+    def load_image(self, file_path=None):
+        if file_path == None:
+           file_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.bmp)")
+
         if file_path:
             self.image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
             self.image = cv2.resize(self.image, (300, 300))
             self.calculate_frequency_components()
             self.display_image(self.label)
             self.update_component_display()
+
 
     def calculate_frequency_components(self):
         if self.image is not None:
@@ -195,10 +201,6 @@ class ImageReconstructionApp(QWidget):
         self.middle_layout.addLayout(H_layout_1)
         self.middle_layout.addLayout(H_layout_2)
 
-        # self.right_layout.addWidget(self.reconstructed_label)
-        # self.right_layout.addWidget(self.process_button)
-        # self.right_layout.addWidget(self.controll_frame)
-
         self.right_layout.addWidget(self.output_port_1)
         self.left_layout.addWidget(self.output_port_2)
 
@@ -218,7 +220,19 @@ class ImageReconstructionApp(QWidget):
 
 
         self.setLayout(self.layout)
+        self.load_initial_images()
 
+    def load_initial_images(self):
+            image_paths = [
+                'data/image1.jpg',
+                'data/image2.jpg',
+                'data/image3.jpg',
+                'data/image4.jpg'
+            ]
+            images = [self.image_1, self.image_2, self.image_3, self.image_4]
+
+            for image, path in zip(images, image_paths):
+                ImageData.load_image(image, path)
     def process_images(self, output_port):
         images = [self.image_1, self.image_2, self.image_3, self.image_4]
 

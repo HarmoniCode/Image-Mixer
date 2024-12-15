@@ -27,7 +27,7 @@ class ImageData(QWidget):
         self.label.setObjectName("image_label")
 
         self.component_canvas = FigureCanvas(Figure(figsize=(2, 2)))
-        self.component_canvas.setFixedSize(250, 250)
+        self.component_canvas.setFixedSize(300, 300)
         self.ax = self.component_canvas.figure.add_subplot(111)
         self.ax.axis('off') 
 
@@ -252,7 +252,9 @@ class ImageReconstructionApp(QWidget):
 
             for image, path in zip(images, image_paths):
                 ImageData.load_image(image, path)
-                
+                image.rectangle_selector.extents = (0, 300, 0, 300)
+                image.rectangle_selector.update()
+
     def on_select(self, eclick, erelease):
             x0, y0 = round(eclick.xdata), round(eclick.ydata)
             x1, y1 = round(erelease.xdata), round(erelease.ydata)

@@ -119,7 +119,7 @@ class ImageGroup(QWidget):
         
         f = np.fft.fft2(adjusted_image)
         fshift = np.fft.fftshift(f)
-        self.magnitude_spectrum = np.abs(fshift)
+        self.magnitude_spectrum = 20 * np.log(np.abs(fshift) + 1e-5)
         self.phase_spectrum = np.angle(fshift)
         
         self.update_canvas()

@@ -7,11 +7,14 @@ QLabel#image_label {
   border: 3px dashed rgb(67, 173, 219);
   text-align: center;
   border-radius: 5px;
+  font-weight: bold;
 }
 
 QLabel#percentage_label{
     background-color: transparent;
     border: none;
+  font-weight: bold;
+
 }
 
 QLabel#reconstructed_label,#image_label{

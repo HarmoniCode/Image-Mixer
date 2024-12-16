@@ -20,9 +20,15 @@ class ImageData(QWidget):
         self.magnitude_spectrum = None
         self.phase_sepctrum = None
         self.transformed = None
+        self.brightness = 0  
+        self.contrast = 1.0  
+        self.start_pos = None        
 
         self.label = QLabel("Load Image", self.image)
         self.label.setObjectName("image_label")
+
+        self.label.mousePressEvent = self.start_mouse_drag
+        self.label.mouseMoveEvent = self.adjust_brightness_contrast
         
         self.label.setMaximumWidth(300)
         self.label.setMinimumWidth(300)
@@ -87,6 +93,38 @@ class ImageData(QWidget):
                 )
         self.rectangle_selector.set_active(True)
 
+    def start_mouse_drag(self, event):
+        '''Start tracking the mouse drag'''
+        self.start_pos = event.pos()
+
+    def adjust_brightness_contrast(self, event):
+        '''Adjust brightness and contrast based on mouse movement'''
+        if self.image is None:
+            return
+
+        dx = event.pos().x() - self.start_pos.x()  
+        dy = event.pos().y() - self.start_pos.y()  
+        
+        self.brightness = dy * 0.5  
+        self.contrast = 1 + (dx * 0.01)  
+
+        adjusted_image = self.apply_brightness_contrast(self.image, self.brightness, self.contrast)
+
+        # Update the display image
+        h, w = adjusted_image.shape
+        qimage = QImage(adjusted_image.data, w, h, w, QImage.Format.Format_Grayscale8)
+        pixmap = QPixmap.fromImage(qimage)
+        self.label.setPixmap(pixmap)
+        self.label.setScaledContents(True)
+
+        # Update the frequency domain display
+        self.update_component_due_brightness_contrast(adjusted_image)
+
+    def apply_brightness_contrast(self, image, brightness, contrast):
+        '''Apply brightness and contrast adjustments'''
+        adjusted = np.clip(contrast * image + brightness, 0, 255).astype(np.uint8)
+        return adjusted
+
     def load_image(self, file_path=None):
         if file_path == None:
             file_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.bmp)")
@@ -104,8 +142,6 @@ class ImageData(QWidget):
             self.magnitude_spectrum = np.abs(self.transformed)
             self.phase_sepctrum = np.angle(self.transformed)
 
-
-
     def display_image(self, label):
         if self.image is not None:
             height, width = self.image.shape
@@ -115,6 +151,33 @@ class ImageData(QWidget):
             pixmap = QPixmap.fromImage(qimage)
             label.setPixmap(pixmap.scaled(label.width(), label.height(), Qt.KeepAspectRatio))  
             print(self.image)
+
+    def update_component_due_brightness_contrast(self,image):
+        if image is not None:
+            if not isinstance(image, np.ndarray) or len(image.shape) != 2:
+                print("Error: Invalid image format. Expected a 2D numpy array.")
+                return
+            if image.size == 0:
+                print("Error: The provided image is empty.")
+                return
+            
+            f = np.fft.fft2(image)
+            fshift = np.fft.fftshift(f)
+            self.transformed = fshift
+            self.magnitude_spectrum = np.abs(self.transformed)
+            self.phase_sepctrum = np.angle(self.transformed)
+
+        if self.image is not None:
+            if self.magnitude_radio.isChecked():
+                component = 20 * np.log(np.abs(fshift) + 1e-5)
+            else:
+                component = np.angle(fshift)
+
+            self.ax.clear()
+            self.ax.imshow(component, cmap='gray')
+            self.ax.axis('off')
+            self.component_canvas.draw()
+
             
     def update_component_display(self):
         if self.transformed is not None:
@@ -131,6 +194,7 @@ class ImageData(QWidget):
                 self.component_canvas.draw()
         else:
             print("Error: No transformed data available. Please load an image first.")
+
 
 
 class outputPort(QWidget):

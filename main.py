@@ -180,20 +180,33 @@ class ImageData(QWidget):
 
             
     def update_component_display(self):
-        if self.transformed is not None:
-            fshift = np.fft.fftshift(self.transformed)
-            if self.image is not None:
-                if self.magnitude_radio.isChecked():
-                    component = 20 * np.log(np.abs(fshift) + 1e-5)
-                else:
-                    component = np.angle(fshift)
+        """Update the displayed frequency component based on the selected radio button."""
+        # Use the current image to recompute FFT components
+        current_image = self.image
+        if current_image is None:
+            print("No image loaded.")
+            return
 
-                self.ax.clear()
-                self.ax.imshow(component, cmap='gray')
-                self.ax.axis('off')
-                self.component_canvas.draw()
-        else:
-            print("Error: No transformed data available. Please load an image first.")
+        # Recompute the FFT components
+        f = np.fft.fft2(current_image)
+        fshift = np.fft.fftshift(f)
+        self.transformed = fshift  # Update the class attribute
+
+        if self.magnitude_radio.isChecked():
+            component = 20 * np.log(np.abs(fshift) + 1e-5)  # Avoid log(0)
+        elif self.phase_radio.isChecked():
+            component = np.angle(fshift)
+        elif self.real_radio.isChecked():
+            component = np.real(fshift)
+        elif self.imaginary_radio.isChecked():
+            component = np.imag(fshift)
+
+        # Update the plot
+        self.ax.clear()
+        self.ax.imshow(component, cmap='gray')
+        self.ax.axis('off')
+        self.component_canvas.draw()
+
 
 
 

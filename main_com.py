@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 import cv2
-from PyQt5.QtWidgets import QApplication, QFrame, QComboBox, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QSlider
+from PyQt5.QtWidgets import QSizePolicy,QSpacerItem, QApplication, QFrame, QComboBox, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QSlider, QRadioButton, QButtonGroup
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -12,30 +12,58 @@ class ImageData(QWidget):
     def __init__(self):
         super().__init__()
         self.layout = QVBoxLayout()
+        self.layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignVCenter)
+
+
 
         self.image = None
         self.magnitude_spectrum = None
         self.phase_sepctrum = None
         self.transformed = None
 
-        self.label = QLabel("Image", self.image)
-        self.label.setMaximumWidth(250)
-        self.label.setMinimumWidth(250)
-        self.label.setMaximumHeight(250)
-        self.label.setStyleSheet("border: 1px solid black;")
-        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.label = QLabel("Load Image", self.image)
+        self.label.setObjectName("image_label")
+        
+        self.label.setMaximumWidth(300)
+        self.label.setMinimumWidth(300)
+        self.label.setMaximumHeight(300)
+        self.label.setMinimumHeight(300)
+
+        self.label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
         self.label.setObjectName("image_label")
 
         self.component_canvas = FigureCanvas(Figure(figsize=(2, 2)))
-        self.component_canvas.setFixedSize(300, 300)
+        self.component_canvas.setFixedSize(250, 300)
         self.ax = self.component_canvas.figure.add_subplot(111)
         self.ax.axis('off') 
 
+        self.magnitude_radio = QRadioButton("Magnitude")
+        self.magnitude_radio.setChecked(True)
+        self.phase_radio = QRadioButton("Phase") 
+        self.real_radio = QRadioButton("Real") 
+        self.imaginary_radio = QRadioButton("Imaginary")  
 
-        self.combo_box = QComboBox()
-        self.combo_box.addItem("Magnitude")
-        self.combo_box.addItem("Phase")
-        self.combo_box.currentIndexChanged.connect(self.update_component_display)
+
+        self.component_group = QButtonGroup(self)
+
+        self.component_group.addButton(self.magnitude_radio)
+        self.component_group.addButton(self.phase_radio)  
+        self.component_group.addButton(self.real_radio)
+        self.component_group.addButton(self.imaginary_radio) 
+
+        self.component_group.buttonClicked.connect(self.update_component_display)
+
+        H_radio_frame = QFrame()
+        H_radio_frame.setObjectName("H_radio_frame")
+        H_radio_layout = QHBoxLayout()
+        H_radio_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        H_radio_layout.setSpacing(50)
+        H_radio_frame.setLayout(H_radio_layout)
+        H_radio_layout.addWidget(self.magnitude_radio)
+        H_radio_layout.addWidget(self.phase_radio)
+        H_radio_layout.addWidget(self.real_radio)
+        H_radio_layout.addWidget(self.imaginary_radio)
+
 
 
         self.label.mouseDoubleClickEvent = lambda event: self.load_image()
@@ -45,8 +73,8 @@ class ImageData(QWidget):
         H_layout.addWidget(self.component_canvas)
 
         self.layout.addLayout(H_layout)
-        self.layout.addWidget(self.combo_box)
-        self.layout.addWidget(self.combo_box)
+        self.layout.addSpacerItem(QSpacerItem(0,15,QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Minimum))
+        self.layout.addWidget(H_radio_frame)
 
         self.setLayout(self.layout)
         self.rectangle_selector = RectangleSelector(
@@ -89,64 +117,99 @@ class ImageData(QWidget):
             print(self.image)
             
     def update_component_display(self):
+        if self.transformed is not None:
+            fshift = np.fft.fftshift(self.transformed)
+            if self.image is not None:
+                if self.magnitude_radio.isChecked():
+                    component = 20 * np.log(np.abs(fshift) + 1e-5)
+                else:
+                    component = np.angle(fshift)
 
-        fshift = np.fft.fftshift(self.transformed)
-        if self.image is not None:
-            if self.combo_box.currentText() == "Magnitude":
-                
-                component = 20 * np.log(np.abs(fshift) + 1e-5)
-            else:
-                component = np.angle(fshift)
-
-            self.ax.clear()
-            self.ax.imshow(component, cmap='gray')
-            self.ax.axis('off')
-            self.component_canvas.draw()
+                self.ax.clear()
+                self.ax.imshow(component, cmap='gray')
+                self.ax.axis('off')
+                self.component_canvas.draw()
+        else:
+            print("Error: No transformed data available. Please load an image first.")
 
 
 class outputPort(QWidget):
     def __init__(self,parent=None):
         super().__init__(parent)
         self.layout = QVBoxLayout()
-        self.label = QLabel("Reconstructed Image")
-        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label.setStyleSheet("border: 1px solid black;")
+        self.layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignVCenter)
+        self.label = QLabel("Output Port")
+        self.label.setObjectName("reconstructed_label")
+        self.label.setAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
         self.label.setMaximumWidth(300)
         self.label.setMinimumWidth(300)
         self.label.setMaximumHeight(300)
+        self.label.setMinimumHeight(300)
 
-        self.layout.addWidget(self.label)
 
-        self.process_button=QPushButton("Process and Reconstruct")
+
+        label_frame = QFrame()
+        label_frame.setObjectName("label_frame")
+        label_layout = QVBoxLayout()
+        label_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label_frame.setLayout(label_layout)
+
+        label_layout.addWidget(self.label)
+
+        self.layout.addWidget(label_frame)
+
+        self.process_button=QPushButton("Reconstruct")
+        self.process_button.setFixedHeight(50)
         self.layout.addWidget(self.process_button)
 
-        self.control_frame = QFrame()
-        self.control_layout = QVBoxLayout()
-        self.control_frame.setLayout(self.control_layout)
+        
 
         self.weight_sliders = []
         self.combo_boxes = []
 
         for i in range(4):
+            self.control_frame = QFrame()
+            self.control_frame.setObjectName("control_frame")
+            self.control_layout = QVBoxLayout()
+            self.control_layout.setSpacing(20)
+
+            self.control_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)                 
+            self.control_frame.setLayout(self.control_layout)
+
+            H_layout = QHBoxLayout()
+            
+            self.percentage_label = QLabel("0%")
+            self.percentage_label.setObjectName("percentage_label")
+
             self.weight_slider = QSlider(Qt.Orientation.Horizontal)
             self.weight_slider.setRange(0, 100)
             self.weight_slider.setValue(0)
             self.weight_slider.setTickInterval(1)
             self.weight_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
-            self.weight_slider.setFixedWidth(200)
+            self.weight_slider.setFixedWidth(250)
+            self.weight_slider.valueChanged.connect(lambda value, label=self.percentage_label: self.update_slider_label(value, label))
             self.weight_sliders.append(self.weight_slider)
 
+            H_layout.addWidget(self.weight_slider)
+            H_layout.addWidget(self.percentage_label)
+
+
             self.combo_box = QComboBox()
+            self.combo_box.setFixedWidth(250)
             self.combo_box.addItem("Magnitude")
             self.combo_box.addItem("Phase")
 
             self.combo_boxes.append(self.combo_box)
 
             self.control_layout.addWidget(self.combo_box)
-            self.control_layout.addWidget(self.weight_slider)        
+            self.control_layout.addLayout(H_layout)  
+                  
+            self.layout.addWidget(self.control_frame)
 
-        self.layout.addWidget(self.control_frame)
         self.setLayout(self.layout)
+
+    def update_slider_label(self, value, label):
+        label.setText(f"{value}%")
 
 
 class ImageReconstructionApp(QWidget):
@@ -157,6 +220,7 @@ class ImageReconstructionApp(QWidget):
         self.setGeometry(200, 200, 1000, 600)
 
         self.right_frame = QFrame()
+        self.right_frame.setObjectName("right_frame")
         self.right_frame.setMaximumWidth(350)
         self.right_frame.setMinimumWidth(350)
 
@@ -164,18 +228,17 @@ class ImageReconstructionApp(QWidget):
         self.right_frame.setLayout(self.right_layout)
 
         self.left_frame = QFrame()
+        self.left_frame.setObjectName("left_frame")
         self.left_frame.setMaximumWidth(350)
         self.left_frame.setMinimumWidth(350)
         self.left_layout = QVBoxLayout()
         self.left_frame.setLayout(self.left_layout)
 
         self.middle_frame = QFrame()
+        self.middle_frame.setObjectName("middle_frame")
         self.middle_layout = QVBoxLayout()
         self.middle_frame.setLayout(self.middle_layout)
 
-        self.controll_frame = QFrame()
-        self.controll_layout = QVBoxLayout()
-        self.controll_frame.setLayout(self.controll_layout)
 
         self.layout = QHBoxLayout()
 
@@ -194,10 +257,22 @@ class ImageReconstructionApp(QWidget):
         # Horizontal layout for displaying the images
         self.image_layout = QHBoxLayout()
 
-        self.reconstructed_label = QLabel(self)
 
+        H_frame_1=QFrame()
+        H_frame_1.setObjectName("H_frame_1")
         H_layout_1 = QHBoxLayout()
+        H_layout_1.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        H_frame_1.setLayout(H_layout_1)
+        H_layout_1.setContentsMargins(0, 0, 0, 0)
+
+
+        H_frame_2=QFrame()
+        H_frame_2.setObjectName("H_frame_2")
         H_layout_2 = QHBoxLayout()
+        H_layout_2.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        H_layout_2.setContentsMargins(0, 0, 0, 0)
+
+        H_frame_2.setLayout(H_layout_2)
 
         H_layout_1.addWidget(self.image_1)
         H_layout_1.addWidget(self.image_2)
@@ -205,12 +280,9 @@ class ImageReconstructionApp(QWidget):
         H_layout_2.addWidget(self.image_3)
         H_layout_2.addWidget(self.image_4)
 
-        self.middle_layout.addLayout(H_layout_1)
-        self.middle_layout.addLayout(H_layout_2)
+        self.middle_layout.addWidget(H_frame_1)
+        self.middle_layout.addWidget(H_frame_2)
 
-        # self.right_layout.addWidget(self.reconstructed_label)
-        # self.right_layout.addWidget(self.process_button)
-        # self.right_layout.addWidget(self.controll_frame)
 
         self.right_layout.addWidget(self.output_port_1)
         self.left_layout.addWidget(self.output_port_2)
@@ -342,6 +414,10 @@ class ImageReconstructionApp(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    
+    with open("./Styling/style.css", "r") as file:
+        app.setStyleSheet(file.read())
+    
     window = ImageReconstructionApp()
     window.show()
     sys.exit(app.exec_())

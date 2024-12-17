@@ -430,7 +430,7 @@ class MainWidget(QMainWindow):
                 # Perform inverse FFT
             f_ishift = np.fft.ifftshift(fshift)
             img_back = np.fft.ifft2(f_ishift)
-            img_back = np.abs(img_back)
+            # img_back = np.abs(img_back)
 
             # Normalize the output image to the full 0–255 range
             img_back = (img_back - np.min(img_back)) / (np.max(img_back) - np.min(img_back)) * 255

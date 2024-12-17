@@ -19,6 +19,8 @@ class ImageData(QWidget):
         self.image = None
         self.magnitude_spectrum = None
         self.phase_sepctrum = None
+        self.real_sepctrum = None
+        self.imaginary_sepctrum = None
         self.transformed = None
         self.brightness = 0  
         self.contrast = 1.0  
@@ -141,6 +143,8 @@ class ImageData(QWidget):
             self.transformed = np.fft.fft2(self.image)
             self.magnitude_spectrum = np.abs(self.transformed)
             self.phase_sepctrum = np.angle(self.transformed)
+            self.real_sepctrum = np.real(self.transformed)
+            self.imaginary_sepctrum = np.imag(self.transformed)
 
     def display_image(self, label):
         if self.image is not None:
@@ -150,15 +154,13 @@ class ImageData(QWidget):
             qimage = QImage(image_bytes, width, height, bytes_per_line, QImage.Format_Grayscale8)
             pixmap = QPixmap.fromImage(qimage)
             label.setPixmap(pixmap.scaled(label.width(), label.height(), Qt.KeepAspectRatio))  
-            print(self.image)
+            # print(self.image)
 
-    def update_component_due_brightness_contrast(self,image):
+    def update_component_due_brightness_contrast(self, image):
         if image is not None:
             if not isinstance(image, np.ndarray) or len(image.shape) != 2:
-                print("Error: Invalid image format. Expected a 2D numpy array.")
                 return
             if image.size == 0:
-                print("Error: The provided image is empty.")
                 return
             
             f = np.fft.fft2(image)
@@ -166,12 +168,18 @@ class ImageData(QWidget):
             self.transformed = fshift
             self.magnitude_spectrum = np.abs(self.transformed)
             self.phase_sepctrum = np.angle(self.transformed)
+            self.real_sepctrum = np.real(self.transformed)
+            self.imaginary_sepctrum = np.imag(self.transformed)
 
         if self.image is not None:
             if self.magnitude_radio.isChecked():
                 component = 20 * np.log(np.abs(fshift) + 1e-5)
-            else:
+            elif self.phase_radio.isChecked():
                 component = np.angle(fshift)
+            elif self.real_radio.isChecked():
+                component = np.real(fshift)
+            elif self.imaginary_radio.isChecked():
+                component = np.imag(fshift)
 
             self.ax.clear()
             self.ax.imshow(component, cmap='gray')
@@ -184,7 +192,7 @@ class ImageData(QWidget):
         # Use the current image to recompute FFT components
         current_image = self.image
         if current_image is None:
-            print("No image loaded.")
+            # print("No image loaded.")
             return
 
         # Recompute the FFT components
@@ -193,7 +201,7 @@ class ImageData(QWidget):
         self.transformed = fshift  # Update the class attribute
 
         if self.magnitude_radio.isChecked():
-            component = 20 * np.log(np.abs(fshift) + 1e-5)  # Avoid log(0)
+            component = 20 * np.log(np.abs(fshift) + 1e-5)
         elif self.phase_radio.isChecked():
             component = np.angle(fshift)
         elif self.real_radio.isChecked():
@@ -275,6 +283,8 @@ class outputPort(QWidget):
             self.combo_box.setFixedWidth(250)
             self.combo_box.addItem("Magnitude")
             self.combo_box.addItem("Phase")
+            self.combo_box.addItem("Real")
+            self.combo_box.addItem("Imaginary")
 
             self.combo_boxes.append(self.combo_box)
 
@@ -408,8 +418,8 @@ class ImageReconstructionApp(QWidget):
             x0, y0 = round(eclick.xdata), round(eclick.ydata)
             x1, y1 = round(erelease.xdata), round(erelease.ydata)
 
-            print(f"Normalized coordinates (x0, y0): ({x0}, {y0})")
-            print(f"Normalized coordinates (x1, y1): ({x1}, {y1})")
+            # print(f"Normalized coordinates (x0, y0): ({x0}, {y0})")
+            # print(f"Normalized coordinates (x1, y1): ({x1}, {y1})")
 
             if x0 == x1 or y0 == y1:
                 return
@@ -425,9 +435,9 @@ class ImageReconstructionApp(QWidget):
     def process_images(self, output_port):
         images = [self.image_1, self.image_2, self.image_3, self.image_4]
 
-        for image in images:
-            if image.image is not None:
-                image.calculate_frequency_components()
+        # for image in images:
+        #     if image.image is not None:
+        #         image.calculate_frequency_components()
 
         if all(image.image is not None for image in images):
             magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
@@ -436,54 +446,63 @@ class ImageReconstructionApp(QWidget):
             phase_components = np.zeros_like(images[0].phase_sepctrum[
                     self.selected_region[0] : self.selected_region[1],
                     self.selected_region[2] : self.selected_region[3]])
-
+            real_components = np.zeros_like(images[0].real_sepctrum[
+                    self.selected_region[0] : self.selected_region[1],
+                    self.selected_region[2] : self.selected_region[3]])
+            imaginary_components = np.zeros_like(images[0].imaginary_sepctrum[
+                    self.selected_region[0] : self.selected_region[1],
+                    self.selected_region[2] : self.selected_region[3]])
 
             for i in range(4):
-                if output_port.combo_boxes[i].currentText() == "Magnitude":
-                    magnitude_components += (output_port.weight_sliders[i].value() / 100.0) * images[i].magnitude_spectrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]]
-                    
-                    
-                elif output_port.combo_boxes[i].currentText() == "Phase":
-                    phase_components += (output_port.weight_sliders[i].value() / 100.0) * images[i].phase_sepctrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]]
-                   
-                print(images[0].magnitude_spectrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]])
-                
-                print(f'mag components  {magnitude_components}')
-                print(f'phase components {phase_components}')
-                print(images[1].phase_sepctrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]])
+                weight = output_port.weight_sliders[i].value()
+                component_type = output_port.combo_boxes[i].currentText()
+                print(f"Slider {i}: weight = {weight}, component = {component_type}")
 
-            total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Magnitude") / 100.0
-            total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Phase") / 100.0
-            print(f"sum mag {total_magnitude_weight}")
-            print(f"sum phase {total_phase_weight}")
+                if component_type == "Magnitude":
+                    magnitude_components += weight * images[i].magnitude_spectrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]]
+                elif component_type == "Phase":
+                    phase_components += weight * images[i].phase_sepctrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]]
+                elif component_type == "Real":
+                    real_components += weight * images[i].real_sepctrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]]
+                elif component_type == "Imaginary":
+                    imaginary_components += weight * images[i].imaginary_sepctrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]]
+
+            total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Magnitude")
+            total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Phase")
+            total_real_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Real")
+            total_imaginary_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Imaginary")
 
             if total_magnitude_weight > 0:
                 magnitude_components /= total_magnitude_weight
             if total_phase_weight > 0:
                 phase_components /= total_phase_weight
-            print(f"total mag {magnitude_components}")
-            print(f"total phase {phase_components}")
+            if total_real_weight > 0:
+                real_components /= total_real_weight
+            if total_imaginary_weight > 0:
+                imaginary_components /= total_imaginary_weight
 
-            reconstructed_f = magnitude_components * np.exp(1j * phase_components)
+            if total_real_weight > 0 or total_imaginary_weight > 0:
+                reconstructed_f = real_components + 1j * imaginary_components
+            else:
+                reconstructed_f = magnitude_components * np.exp(1j * phase_components)
+
             reconstructed_image = np.abs(np.fft.ifft2(reconstructed_f))
-            print(f"reconstructed image before{reconstructed_image}")
             reconstructed_image = np.uint8(np.clip(reconstructed_image, 0, 255))
-            print(f"reconstructed image after{reconstructed_image}")
 
             height, width = reconstructed_image.shape
             bytes_per_line = width
             image_bytes = reconstructed_image.tobytes()
             qimage = QImage(image_bytes, width, height, bytes_per_line, QImage.Format_Grayscale8)
             pixmap = QPixmap.fromImage(qimage)
-            output_port.label.setPixmap(pixmap.scaled(output_port.label.width(), output_port.label.height(), Qt.KeepAspectRatio))  # Resize to fit label
+            output_port.label.setPixmap(pixmap.scaled(output_port.label.width(), output_port.label.height(), Qt.KeepAspectRatio))
 
         else:
             print("Please load images.")

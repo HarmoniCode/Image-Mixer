@@ -31,12 +31,10 @@ class ImageData(QWidget):
         self.ax = self.component_canvas.figure.add_subplot(111)
         self.ax.axis('off') 
 
-
         self.combo_box = QComboBox()
         self.combo_box.addItem("Magnitude")
         self.combo_box.addItem("Phase")
         self.combo_box.currentIndexChanged.connect(self.update_component_display)
-
 
         self.label.mouseDoubleClickEvent = lambda event: self.load_image()
 
@@ -55,19 +53,18 @@ class ImageData(QWidget):
             interactive=True,
             useblit=True,  
             drag_from_anywhere=True,
-            spancoords = 'pixels'
-                )
+            spancoords='pixels'
+        )
         self.rectangle_selector.set_active(True)
 
     def load_image(self, file_path=None):
-        if file_path == None:
+        if file_path is None:
             file_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.bmp)")
 
         if file_path:
             self.image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
-            self.image = cv2.resize(self.image, (300, 300))
-            self.calculate_frequency_components()
-            self.display_image(self.label)
+            self.image = cv2.resize(self.image, (250, 250))
+            self.display_image(self.image)
             self.update_component_display()
 
     def calculate_frequency_components(self):
@@ -78,30 +75,33 @@ class ImageData(QWidget):
 
 
 
-    def display_image(self, label):
-        if self.image is not None:
-            height, width = self.image.shape
+    def display_image(self, image):
+        if image is not None:
+            height, width = image.shape
             bytes_per_line = width
-            image_bytes = self.image.tobytes()
+            image_bytes = image.tobytes()
             qimage = QImage(image_bytes, width, height, bytes_per_line, QImage.Format_Grayscale8)
             pixmap = QPixmap.fromImage(qimage)
-            label.setPixmap(pixmap.scaled(label.width(), label.height(), Qt.KeepAspectRatio))  
-            print(self.image)
+            self.label.setPixmap(pixmap.scaled(self.label.width(), self.label.height(), Qt.KeepAspectRatio))
+            self.ax.imshow(image, cmap='gray')
+            self.ax.set_xlim(0, width)
+            self.ax.set_ylim(height, 0)
+            self.component_canvas.draw()
             
     def update_component_display(self):
+        if self.image is None:
+            return
 
-        fshift = np.fft.fftshift(self.transformed)
-        if self.image is not None:
-            if self.combo_box.currentText() == "Magnitude":
-                
-                component = 20 * np.log(np.abs(fshift) + 1e-5)
-            else:
-                component = np.angle(fshift)
+        if self.combo_box.currentText() == "Magnitude":
+            component = 20 * np.log(np.abs(np.fft.fftshift(np.fft.fft2(self.image))) + 1e-5)
+        else:
+            component = np.angle(np.fft.fftshift(np.fft.fft2(self.image)))
 
-            self.ax.clear()
-            self.ax.imshow(component, cmap='gray')
-            self.ax.axis('off')
-            self.component_canvas.draw()
+        self.ax.clear()
+        self.ax.imshow(component, cmap='gray')
+        self.ax.set_xlim(0, self.image.shape[1])
+        self.ax.set_ylim(self.image.shape[0], 0)
+        self.component_canvas.draw()
 
 
 class outputPort(QWidget):

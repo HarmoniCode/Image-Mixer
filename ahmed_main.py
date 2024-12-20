@@ -7,7 +7,6 @@ from PyQt5.QtGui import QPixmap, QImage
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.widgets import RectangleSelector
-import matplotlib.pyplot as plt
 
 class ImageData(QWidget):
     def __init__(self):
@@ -16,7 +15,7 @@ class ImageData(QWidget):
 
         self.image = None
         self.magnitude_spectrum = None
-        self.phase_spectrum = None
+        self.phase_sepctrum = None
         self.transformed = None
 
         self.label = QLabel("Image", self.image)
@@ -28,7 +27,7 @@ class ImageData(QWidget):
         self.label.setObjectName("image_label")
 
         self.component_canvas = FigureCanvas(Figure(figsize=(2, 2)))
-        self.component_canvas.setFixedSize(250, 250)
+        self.component_canvas.setFixedSize(300, 300)
         self.ax = self.component_canvas.figure.add_subplot(111)
         self.ax.axis('off') 
 
@@ -54,7 +53,7 @@ class ImageData(QWidget):
             interactive=True,
             useblit=True,  
             drag_from_anywhere=True,
-            spancoords='pixels',
+            spancoords='pixels'
         )
         self.rectangle_selector.set_active(True)
 
@@ -70,9 +69,9 @@ class ImageData(QWidget):
 
     def calculate_frequency_components(self):
         if self.image is not None:
-            self.transformed = np.fft.fftshift(np.fft.fft2(self.image))
+            self.transformed = np.fft.fft2(self.image)
             self.magnitude_spectrum = np.abs(self.transformed)
-            self.phase_spectrum = np.angle(self.transformed)
+            self.phase_sepctrum = np.angle(self.transformed)
 
 
 
@@ -188,10 +187,7 @@ class ImageReconstructionApp(QWidget):
 
         self.output_port_1 = outputPort()
         self.output_port_2 = outputPort()
-        # Buttons for loading images and processing
-        self.reset_button = QPushButton("Reset Coordinates")
-        self.reset_button.clicked.connect(self.reset_coordinates)
-        self.middle_layout.addWidget(self.reset_button)
+
         images=[self.image_1, self.image_2, self.image_3, self.image_4]
 
 
@@ -245,69 +241,19 @@ class ImageReconstructionApp(QWidget):
         
         self.load_initial_images()
 
-    import matplotlib.pyplot as plt
-
-    def reset_coordinates(self):
-        self.selected_region = [0, 250, 0, 250]
-        for image in [self.image_1, self.image_2, self.image_3, self.image_4]:
-            image.rectangle_selector.extents = (0, 250, 0, 250)
-            image.rectangle_selector.update()
     def load_initial_images(self):
-        image_paths = [
-            'data/image1.jpg',
-            'data/image2.jpg',
-            'data/image3.jpg',
-            'data/image4.jpg'
-        ]
-        images = [self.image_1, self.image_2, self.image_3, self.image_4]
+            image_paths = [
+                'D:/DSP/new_task4/Image-Mixer-merging/Data/image1.jpg',
+                'D:/DSP/new_task4/Image-Mixer-merging/Data/image2.jpg',
+                'D:/DSP/new_task4/Image-Mixer-merging/Data/image3.jpg',
+                'D:/DSP/new_task4/Image-Mixer-merging/Data/image4.jpg'
+            ]
+            images = [self.image_1, self.image_2, self.image_3, self.image_4]
 
-        fig, axes = plt.subplots(4, 3, figsize=(15, 20))  # Updated layout for 3 columns per row
-
-        for i, (image, path) in enumerate(zip(images, image_paths)):
-            image.load_image(path)
-            image.rectangle_selector.extents = (0, 300, 0, 300)
-            image.rectangle_selector.update()
-            image.calculate_frequency_components()  # Calculate frequency components
-            image.update_component_display()
-
-            # Get Fourier Transform and its dimensions
-            transformed = np.fft.fftshift(image.transformed)
-            height, width = transformed.shape
-
-            # Compute magnitude spectrum
-            magnitude_spectrum = 20 * np.log(np.abs(transformed) + 1e-5)
-            axes[i, 0].imshow(magnitude_spectrum, cmap='viridis')
-            axes[i, 0].set_title(f'Magnitude Spectrum {i + 1}')
-            axes[i, 0].axis('off')
-
-            # Compute phase spectrum
-            phase_spectrum = np.angle(transformed)
-            axes[i, 1].imshow(phase_spectrum, cmap='twilight')
-            axes[i, 1].set_title(f'Phase Spectrum {i + 1}')
-            axes[i, 1].axis('off')
-
-            # Radial frequency spectrum calculation
-            y, x = np.indices((height, width))
-            center = (height // 2, width // 2)  # Center of the FFT
-            radial_distances = np.sqrt((x - center[1]) ** 2 + (y - center[0]) ** 2)
-
-            # Sort magnitude values into radial bins
-            radial_distances = radial_distances.astype(int)
-            max_radius = radial_distances.max()
-            radial_profile = np.bincount(radial_distances.ravel(), weights=magnitude_spectrum.ravel()) / np.bincount(
-                radial_distances.ravel())
-
-            # Frequency axis in Hz (truncate to match radial_profile)
-            freq = np.fft.fftfreq(max(width, height))[:len(radial_profile)]
-
-            # Plot frequency vs amplitude
-            axes[i, 2].plot(freq, radial_profile, color='blue')
-            axes[i, 2].set_title(f'Frequency Spectrum {i + 1}')
-            axes[i, 2].set_xlabel('Frequency (Hz)')
-            axes[i, 2].set_ylabel('Amplitude')
-
-        plt.tight_layout()
-        plt.show()
+            for image, path in zip(images, image_paths):
+                ImageData.load_image(image, path)
+                image.rectangle_selector.extents = (0, 300, 0, 300)
+                image.rectangle_selector.update()
 
     def on_select(self, eclick, erelease):
             x0, y0 = round(eclick.xdata), round(eclick.ydata)
@@ -338,7 +284,7 @@ class ImageReconstructionApp(QWidget):
             magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
                     self.selected_region[0] : self.selected_region[1],
                     self.selected_region[2] : self.selected_region[3]])
-            phase_components = np.zeros_like(images[0].phase_spectrum[
+            phase_components = np.zeros_like(images[0].phase_sepctrum[
                     self.selected_region[0] : self.selected_region[1],
                     self.selected_region[2] : self.selected_region[3]])
 
@@ -351,7 +297,7 @@ class ImageReconstructionApp(QWidget):
                     
                     
                 elif output_port.combo_boxes[i].currentText() == "Phase":
-                    phase_components += (output_port.weight_sliders[i].value() / 100.0) * images[i].phase_spectrum[
+                    phase_components += (output_port.weight_sliders[i].value() / 100.0) * images[i].phase_sepctrum[
                     self.selected_region[0] : self.selected_region[1],
                     self.selected_region[2] : self.selected_region[3]]
                    
@@ -361,7 +307,7 @@ class ImageReconstructionApp(QWidget):
                 
                 print(f'mag components  {magnitude_components}')
                 print(f'phase components {phase_components}')
-                print(images[1].phase_spectrum[
+                print(images[1].phase_sepctrum[
                     self.selected_region[0] : self.selected_region[1],
                     self.selected_region[2] : self.selected_region[3]])
 

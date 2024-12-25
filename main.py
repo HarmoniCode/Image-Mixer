@@ -479,7 +479,7 @@ class ImageReconstructionApp(QWidget):
                 pixmap.scaled(output_port.label.width(), output_port.label.height(), Qt.KeepAspectRatio))
 
         else:
-            print("Please load images.")
+            print("Please load images")
 
 
 if __name__ == "__main__":

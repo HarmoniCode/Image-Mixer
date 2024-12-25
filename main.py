@@ -140,7 +140,7 @@ class ImageData(QWidget):
 
     def calculate_frequency_components(self):
         if self.image is not None:
-            self.transformed = np.fft.fft2(self.image)
+            self.transformed = np.fft.fftshift(np.fft.fft2(self.image))
             self.magnitude_spectrum = np.abs(self.transformed)
             self.phase_sepctrum = np.angle(self.transformed)
             self.real_sepctrum = np.real(self.transformed)

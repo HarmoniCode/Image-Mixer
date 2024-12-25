@@ -2,7 +2,8 @@ import sys
 import numpy as np
 import cv2
 import logging
-from PyQt5.QtWidgets import QSizePolicy, QSpacerItem, QApplication, QFrame, QComboBox, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QSlider, QRadioButton, QButtonGroup
+from PyQt5.QtWidgets import QSizePolicy, QSpacerItem, QApplication, QFrame, QComboBox, QWidget, QVBoxLayout, \
+    QHBoxLayout, QPushButton, QFileDialog, QLabel, QSlider, QRadioButton, QButtonGroup
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -11,6 +12,7 @@ from matplotlib.widgets import RectangleSelector
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class ImageData(QWidget):
     def __init__(self):
@@ -209,6 +211,7 @@ class ImageData(QWidget):
         self.ax.axis('off')
         self.component_canvas.draw()
 
+
 class outputPort(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -259,7 +262,8 @@ class outputPort(QWidget):
             self.weight_slider.setTickInterval(1)
             self.weight_slider.setTickPosition(QSlider.TickPosition.TicksBelow)
             self.weight_slider.setFixedWidth(250)
-            self.weight_slider.valueChanged.connect(lambda value, label=self.percentage_label: self.update_slider_label(value, label))
+            self.weight_slider.valueChanged.connect(
+                lambda value, label=self.percentage_label: self.update_slider_label(value, label))
             self.weight_sliders.append(self.weight_slider)
 
             H_layout.addWidget(self.weight_slider)
@@ -284,6 +288,7 @@ class outputPort(QWidget):
     def update_slider_label(self, value, label):
         logging.debug(f"Updating slider label to {value}%")
         label.setText(f"{value}%")
+
 
 class ImageReconstructionApp(QWidget):
     def __init__(self):
@@ -405,17 +410,17 @@ class ImageReconstructionApp(QWidget):
 
         if all(image.image is not None for image in images):
             magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
-                self.selected_region[0]:self.selected_region[1],
-                self.selected_region[2]:self.selected_region[3]])
+                                                 self.selected_region[0]:self.selected_region[1],
+                                                 self.selected_region[2]:self.selected_region[3]])
             phase_components = np.zeros_like(images[0].phase_spectrum[
-                self.selected_region[0]:self.selected_region[1],
-                self.selected_region[2]:self.selected_region[3]])
+                                             self.selected_region[0]:self.selected_region[1],
+                                             self.selected_region[2]:self.selected_region[3]])
             real_components = np.zeros_like(images[0].real_sepctrum[
-                self.selected_region[0]:self.selected_region[1],
-                self.selected_region[2]:self.selected_region[3]])
+                                            self.selected_region[0]:self.selected_region[1],
+                                            self.selected_region[2]:self.selected_region[3]])
             imaginary_components = np.zeros_like(images[0].imaginary_sepctrum[
-                self.selected_region[0]:self.selected_region[1],
-                self.selected_region[2]:self.selected_region[3]])
+                                                 self.selected_region[0]:self.selected_region[1],
+                                                 self.selected_region[2]:self.selected_region[3]])
 
             for i in range(4):
                 weight = output_port.weight_sliders[i].value()
@@ -424,25 +429,29 @@ class ImageReconstructionApp(QWidget):
 
                 if component_type == "Magnitude":
                     magnitude_components += weight * images[i].magnitude_spectrum[
-                        self.selected_region[0]:self.selected_region[1],
-                        self.selected_region[2]:self.selected_region[3]]
+                                                     self.selected_region[0]:self.selected_region[1],
+                                                     self.selected_region[2]:self.selected_region[3]]
                 elif component_type == "Phase":
                     phase_components += weight * images[i].phase_spectrum[
-                        self.selected_region[0]:self.selected_region[1],
-                        self.selected_region[2]:self.selected_region[3]]
+                                                 self.selected_region[0]:self.selected_region[1],
+                                                 self.selected_region[2]:self.selected_region[3]]
                 elif component_type == "Real":
                     real_components += weight * images[i].real_sepctrum[
-                        self.selected_region[0]:self.selected_region[1],
-                        self.selected_region[2]:self.selected_region[3]]
+                                                self.selected_region[0]:self.selected_region[1],
+                                                self.selected_region[2]:self.selected_region[3]]
                 elif component_type == "Imaginary":
                     imaginary_components += weight * images[i].imaginary_sepctrum[
-                        self.selected_region[0]:self.selected_region[1],
-                        self.selected_region[2]:self.selected_region[3]]
+                                                     self.selected_region[0]:self.selected_region[1],
+                                                     self.selected_region[2]:self.selected_region[3]]
 
-            total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Magnitude")
-            total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Phase")
-            total_real_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Real")
-            total_imaginary_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Imaginary")
+            total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if
+                                         output_port.combo_boxes[i].currentText() == "Magnitude")
+            total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if
+                                     output_port.combo_boxes[i].currentText() == "Phase")
+            total_real_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if
+                                    output_port.combo_boxes[i].currentText() == "Real")
+            total_imaginary_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if
+                                         output_port.combo_boxes[i].currentText() == "Imaginary")
 
             if total_magnitude_weight > 0:
                 magnitude_components /= total_magnitude_weight
@@ -466,7 +475,8 @@ class ImageReconstructionApp(QWidget):
             image_bytes = reconstructed_image.tobytes()
             qimage = QImage(image_bytes, width, height, bytes_per_line, QImage.Format_Grayscale8)
             pixmap = QPixmap.fromImage(qimage)
-            output_port.label.setPixmap(pixmap.scaled(output_port.label.width(), output_port.label.height(), Qt.KeepAspectRatio))
+            output_port.label.setPixmap(
+                pixmap.scaled(output_port.label.width(), output_port.label.height(), Qt.KeepAspectRatio))
 
         else:
             print("Please load images.")
@@ -474,10 +484,10 @@ class ImageReconstructionApp(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    
+
     with open("./Styling/style.css", "r") as file:
         app.setStyleSheet(file.read())
-    
+
     window = ImageReconstructionApp()
     window.show()
     sys.exit(app.exec_())

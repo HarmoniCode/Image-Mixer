@@ -11,13 +11,13 @@ from matplotlib.figure import Figure
 from matplotlib.widgets import RectangleSelector
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class ImageData(QWidget):
     def __init__(self):
         super().__init__()
-        logging.debug("Initializing ImageData")
+        logging.info("Initializing ImageData")
         self.layout = QVBoxLayout()
         self.layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignVCenter)
 
@@ -96,11 +96,11 @@ class ImageData(QWidget):
         self.rectangle_selector.set_active(True)
 
     def start_mouse_drag(self, event):
-        logging.debug("Starting mouse drag")
+        logging.info("Starting mouse drag")
         self.start_pos = event.pos()
 
     def adjust_brightness_contrast(self, event):
-        logging.debug("Adjusting brightness and contrast")
+        logging.info("Adjusting brightness and contrast")
         if self.image is None:
             return
 
@@ -121,12 +121,12 @@ class ImageData(QWidget):
         self.update_component_due_brightness_contrast(adjusted_image)
 
     def apply_brightness_contrast(self, image, brightness, contrast):
-        logging.debug(f"Applying brightness {brightness} and contrast {contrast}")
+        logging.info(f"Applying brightness {brightness} and contrast {contrast}")
         adjusted = np.clip(contrast * image + brightness, 0, 255).astype(np.uint8)
         return adjusted
 
     def load_image(self, file_path=None):
-        logging.debug(f"Loading image from {file_path}")
+        logging.info(f"Loading image from {file_path}")
         if file_path is None:
             file_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.bmp)")
 
@@ -138,7 +138,7 @@ class ImageData(QWidget):
             self.update_component_display()
 
     def calculate_frequency_components(self):
-        logging.debug("Calculating frequency components")
+        logging.info("Calculating frequency components")
         if self.image is not None:
             self.transformed = np.fft.fftshift(np.fft.fft2(self.image))
             self.magnitude_spectrum = np.abs(self.transformed)
@@ -147,7 +147,7 @@ class ImageData(QWidget):
             self.imaginary_sepctrum = np.imag(self.transformed)
 
     def display_image(self, label):
-        logging.debug("Displaying image")
+        logging.info("Displaying image")
         if self.image is not None:
             height, width = self.image.shape
             bytes_per_line = width
@@ -157,7 +157,7 @@ class ImageData(QWidget):
             label.setPixmap(pixmap.scaled(label.width(), label.height(), Qt.KeepAspectRatio))
 
     def update_component_due_brightness_contrast(self, image):
-        logging.debug("Updating component due to brightness and contrast adjustment")
+        logging.info("Updating component due to brightness and contrast adjustment")
         if image is not None:
             if not isinstance(image, np.ndarray) or len(image.shape) != 2:
                 return
@@ -188,7 +188,7 @@ class ImageData(QWidget):
             self.component_canvas.draw()
 
     def update_component_display(self):
-        logging.debug("Updating component display")
+        logging.info("Updating component display")
         current_image = self.image
         if current_image is None:
             return
@@ -215,7 +215,7 @@ class ImageData(QWidget):
 class outputPort(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        logging.debug("Initializing outputPort")
+        logging.info("Initializing outputPort")
         self.layout = QVBoxLayout()
         self.layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignVCenter)
         self.label = QLabel("Output Port")
@@ -286,14 +286,14 @@ class outputPort(QWidget):
         self.setLayout(self.layout)
 
     def update_slider_label(self, value, label):
-        logging.debug(f"Updating slider label to {value}%")
+        logging.info(f"Updating slider label to {value}%")
         label.setText(f"{value}%")
 
 
 class ImageReconstructionApp(QWidget):
     def __init__(self):
         super().__init__()
-        logging.debug("Initializing ImageReconstructionApp")
+        logging.info("Initializing ImageReconstructionApp")
         self.setWindowTitle("Image Frequency Reconstruction with Weight Sliders")
         self.setGeometry(200, 200, 1000, 600)
 
@@ -376,7 +376,7 @@ class ImageReconstructionApp(QWidget):
         self.load_initial_images()
 
     def load_initial_images(self):
-        logging.debug("Loading initial images")
+        logging.info("Loading initial images")
         image_paths = [
             'data/image1.jpg',
             'data/image2.jpg',
@@ -391,7 +391,7 @@ class ImageReconstructionApp(QWidget):
             image.rectangle_selector.update()
 
     def on_select(self, eclick, erelease):
-        logging.debug("Selecting region")
+        logging.info("Selecting region")
         x0, y0 = round(eclick.xdata), round(eclick.ydata)
         x1, y1 = round(erelease.xdata), round(erelease.ydata)
 
@@ -405,7 +405,7 @@ class ImageReconstructionApp(QWidget):
                 image.rectangle_selector.update()
 
     def process_images(self, output_port):
-        logging.debug("Processing images")
+        logging.info("Processing images")
         images = [self.image_1, self.image_2, self.image_3, self.image_4]
 
         if all(image.image is not None for image in images):
@@ -425,7 +425,7 @@ class ImageReconstructionApp(QWidget):
             for i in range(4):
                 weight = output_port.weight_sliders[i].value()
                 component_type = output_port.combo_boxes[i].currentText()
-                logging.debug(f"Slider {i}: weight = {weight}, component = {component_type}")
+                logging.info(f"Slider {i}: weight = {weight}, component = {component_type}")
 
                 if component_type == "Magnitude":
                     magnitude_components += weight * images[i].magnitude_spectrum[

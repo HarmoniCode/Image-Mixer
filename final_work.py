@@ -28,8 +28,12 @@ class ImageLabel(QLabel):
             self.setPixmap(pixmap.scaled(self.width(), self.height(), Qt.AspectRatioMode.KeepAspectRatio))
 
 class ImageData(QWidget):
+    instance_count = 0
     def __init__(self):
         super().__init__()
+        ImageData.instance_count += 1  # Increment the counter
+        self.instance_number = ImageData.instance_count 
+
         self.layout = QVBoxLayout()
         self.layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignVCenter)
 
@@ -41,7 +45,13 @@ class ImageData(QWidget):
         self.transformed = None
         self.brightness = 0  
         self.contrast = 1.0  
-        self.start_pos = None        
+        self.start_pos = None     
+        
+        self.title=QLabel(f"Image {self.instance_number}")
+        self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.title.setObjectName("image_title")
+        self.layout.addWidget(self.title)   
+        
 
         self.label = ImageLabel("Load Image")
         self.label.setObjectName("image_label")

@@ -1,12 +1,13 @@
 import sys
 import numpy as np
 import cv2
-from PyQt5.QtWidgets import QApplication, QFrame, QComboBox, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QFileDialog, QLabel, QSlider
+from PyQt5.QtWidgets import QApplication, QFrame, QComboBox, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QRadioButton, QFileDialog, QLabel, QButtonGroup, QSlider
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPixmap, QImage
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.widgets import RectangleSelector
+import matplotlib.pyplot as plt
 
 class ImageData(QWidget):
     def __init__(self):
@@ -15,8 +16,7 @@ class ImageData(QWidget):
 
         self.image = None
         self.magnitude_spectrum = None
-        self.phase_sepctrum = None
-        self.transformed = None
+        self.phase_spectrum = None
 
         self.label = QLabel("Image", self.image)
         self.label.setMaximumWidth(250)
@@ -27,7 +27,7 @@ class ImageData(QWidget):
         self.label.setObjectName("image_label")
 
         self.component_canvas = FigureCanvas(Figure(figsize=(2, 2)))
-        self.component_canvas.setFixedSize(300, 300)
+        self.component_canvas.setFixedSize(250, 250)
         self.ax = self.component_canvas.figure.add_subplot(111)
         self.ax.axis('off') 
 
@@ -53,7 +53,7 @@ class ImageData(QWidget):
             interactive=True,
             useblit=True,  
             drag_from_anywhere=True,
-            spancoords='pixels'
+            spancoords='pixels',
         )
         self.rectangle_selector.set_active(True)
 
@@ -65,13 +65,14 @@ class ImageData(QWidget):
             self.image = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
             self.image = cv2.resize(self.image, (250, 250))
             self.display_image(self.image)
+            self.calculate_frequency_components()
             self.update_component_display()
 
     def calculate_frequency_components(self):
         if self.image is not None:
-            self.transformed = np.fft.fft2(self.image)
-            self.magnitude_spectrum = np.abs(self.transformed)
-            self.phase_sepctrum = np.angle(self.transformed)
+            transformed = np.fft.fftshift(np.fft.fft2(self.image))
+            self.magnitude_spectrum = np.abs(transformed)
+            self.phase_spectrum = np.angle(transformed)
 
 
 
@@ -93,9 +94,9 @@ class ImageData(QWidget):
             return
 
         if self.combo_box.currentText() == "Magnitude":
-            component = 20 * np.log(np.abs(np.fft.fftshift(np.fft.fft2(self.image))) + 1e-5)
+            component = 20 * np.log(self.magnitude_spectrum+ 1e-5)
         else:
-            component = np.angle(np.fft.fftshift(np.fft.fft2(self.image)))
+            component = np.angle(self.phase_spectrum)
 
         self.ax.clear()
         self.ax.imshow(component, cmap='gray')
@@ -146,6 +147,37 @@ class outputPort(QWidget):
             self.control_layout.addWidget(self.weight_slider)        
 
         self.layout.addWidget(self.control_frame)
+        
+        self.mode_group = QButtonGroup(self)
+
+        self.magnitude_phase_mode = QRadioButton("Magnitude / Phase", self)
+        self.magnitude_phase_mode.setChecked(True)
+        self.mode_group.addButton(self.magnitude_phase_mode)
+        
+        self.real_imaginary_mode = QRadioButton("Real / Imaginary", self)
+        self.real_imaginary_mode.setChecked(False)
+
+        self.mode_group.addButton(self.real_imaginary_mode)
+       
+        self.layout.addWidget(self.magnitude_phase_mode)
+        self.layout.addWidget(self.real_imaginary_mode)
+        
+        
+        
+        self.region_group = QButtonGroup(self)
+
+        self.inside_region_radio = QRadioButton("Region inside", self)
+        self.inside_region_radio.setChecked(True)
+        self.region_group.addButton(self.inside_region_radio)
+        
+        self.outside_region_radio = QRadioButton("Region outside", self)
+        self.outside_region_radio.setChecked(False)
+
+        self.region_group.addButton(self.outside_region_radio)
+       
+        self.layout.addWidget(self.inside_region_radio)
+        self.layout.addWidget(self.outside_region_radio)
+       
         self.setLayout(self.layout)
 
 
@@ -187,7 +219,10 @@ class ImageReconstructionApp(QWidget):
 
         self.output_port_1 = outputPort()
         self.output_port_2 = outputPort()
-
+        # Buttons for loading images and processing
+        self.reset_button = QPushButton("Reset Coordinates")
+        self.reset_button.clicked.connect(self.reset_coordinates)
+        self.middle_layout.addWidget(self.reset_button)
         images=[self.image_1, self.image_2, self.image_3, self.image_4]
 
 
@@ -237,23 +272,34 @@ class ImageReconstructionApp(QWidget):
         self.image_3.rectangle_selector.onselect = self.on_select
         self.image_4.rectangle_selector.onselect = self.on_select
         
-        self.selected_region = [0,300,0,300]
+        self.selected_region = [0,250,0,250]
         
         self.load_initial_images()
 
-    def load_initial_images(self):
-            image_paths = [
-                'data/image1.jpg',
-                'data/image2.jpg',
-                'data/image3.jpg',
-                'data/image4.jpg'
-            ]
-            images = [self.image_1, self.image_2, self.image_3, self.image_4]
 
-            for image, path in zip(images, image_paths):
-                ImageData.load_image(image, path)
-                image.rectangle_selector.extents = (0, 300, 0, 300)
-                image.rectangle_selector.update()
+    def reset_coordinates(self):
+        self.selected_region = [0, 250, 0, 250]
+        for image in [self.image_1, self.image_2, self.image_3, self.image_4]:
+            image.rectangle_selector.extents = (0, 250, 0, 250)
+            image.rectangle_selector.update()
+            
+    def load_initial_images(self):
+        image_paths = ['Data/image1.jpg',
+           'Data/image2.jpg',
+           'Data/image3.jpg',
+          'Data/image4.jpg',
+        ]
+        images = [self.image_1, self.image_2, self.image_3, self.image_4]
+
+
+        for (image, path) in zip(images, image_paths):
+            image.load_image(path)
+            image.rectangle_selector.extents = (0, 250, 0, 250)
+            image.rectangle_selector.update()
+            image.calculate_frequency_components()  
+            image.update_component_display()
+
+           
 
     def on_select(self, eclick, erelease):
             x0, y0 = round(eclick.xdata), round(eclick.ydata)
@@ -271,73 +317,104 @@ class ImageReconstructionApp(QWidget):
                                        
                     image.rectangle_selector.extents = (x0, x1, y0, y1)
                     image.rectangle_selector.update()
-                    
+     
+    def get_outer_region(self, all_region, inner_region):
+        padded_inner_region = np.pad(inner_region, ((0, all_region.shape[0] - inner_region.shape[0]),
+                                            (0, all_region.shape[1] - inner_region.shape[1])),
+                             mode='constant', constant_values=0)
+
+        mask = np.isin(all_region, padded_inner_region)
+
+        outer_region = np.where(mask, 0, all_region)
+        print(f'outer region shape {outer_region.shape}')
+        print(outer_region)
+        return outer_region                        
                     
     def process_images(self, output_port):
         images = [self.image_1, self.image_2, self.image_3, self.image_4]
 
-        for image in images:
-            if image.image is not None:
-                image.calculate_frequency_components()
+        
+        if output_port.inside_region_radio.isChecked():
 
-        if all(image.image is not None for image in images):
-            magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]])
-            phase_components = np.zeros_like(images[0].phase_sepctrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]])
+            if all(image.image is not None for image in images):
+                magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]])
+                phase_components = np.zeros_like(images[0].phase_spectrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]])
 
 
-            for i in range(4):
-                if output_port.combo_boxes[i].currentText() == "Magnitude":
-                    magnitude_components += (output_port.weight_sliders[i].value() / 100.0) * images[i].magnitude_spectrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]]
-                    
-                    
-                elif output_port.combo_boxes[i].currentText() == "Phase":
-                    phase_components += (output_port.weight_sliders[i].value() / 100.0) * images[i].phase_sepctrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]]
-                   
-                print(images[0].magnitude_spectrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]])
+                for i in range(4):
+                    if output_port.combo_boxes[i].currentText() == "Magnitude":
+                        magnitude_components += (output_port.weight_sliders[i].value() / 100.0) * images[i].magnitude_spectrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]]
+                        
+                    elif output_port.combo_boxes[i].currentText() == "Phase":
+                        phase_components += (output_port.weight_sliders[i].value() / 100.0) * images[i].phase_spectrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]]
                 
-                print(f'mag components  {magnitude_components}')
-                print(f'phase components {phase_components}')
-                print(images[1].phase_sepctrum[
-                    self.selected_region[0] : self.selected_region[1],
-                    self.selected_region[2] : self.selected_region[3]])
-
-            total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Magnitude") / 100.0
-            total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Phase") / 100.0
-            print(f"sum mag {total_magnitude_weight}")
-            print(f"sum phase {total_phase_weight}")
-
-            if total_magnitude_weight > 0:
-                magnitude_components /= total_magnitude_weight
-            if total_phase_weight > 0:
-                phase_components /= total_phase_weight
-            print(f"total mag {magnitude_components}")
-            print(f"total phase {phase_components}")
-
-            reconstructed_f = magnitude_components * np.exp(1j * phase_components)
-            reconstructed_image = np.abs(np.fft.ifft2(reconstructed_f))
-            print(f"reconstructed image before{reconstructed_image}")
-            reconstructed_image = np.uint8(np.clip(reconstructed_image, 0, 255))
-            print(f"reconstructed image after{reconstructed_image}")
-
-            height, width = reconstructed_image.shape
-            bytes_per_line = width
-            image_bytes = reconstructed_image.tobytes()
-            qimage = QImage(image_bytes, width, height, bytes_per_line, QImage.Format_Grayscale8)
-            pixmap = QPixmap.fromImage(qimage)
-            output_port.label.setPixmap(pixmap.scaled(output_port.label.width(), output_port.label.height(), Qt.KeepAspectRatio))  # Resize to fit label
-
+               
+                magnitude_components = np.pad(magnitude_components, ((0, images[0].magnitude_spectrum.shape[0] - magnitude_components.shape[0]),
+                                            (0, images[0].magnitude_spectrum.shape[1] - magnitude_components.shape[1])),
+                             mode='constant', constant_values=0)
+                phase_components = np.pad(phase_components, ((0, images[0].phase_spectrum.shape[0] - phase_components.shape[0]),
+                                            (0, images[0].phase_spectrum.shape[1] - phase_components.shape[1])),
+                             mode='constant', constant_values=0)
+            else:
+                print("Please load images.")
         else:
-            print("Please load images.")
+            if all(image.image is not None for image in images):
+                magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
+                        0 : 250,
+                        0 : 250])
+                phase_components = np.zeros_like(images[0].phase_spectrum[
+                        0 : 250,
+                        0 : 250])
+
+
+                for i in range(4):
+                    if output_port.combo_boxes[i].currentText() == "Magnitude":
+                        magnitude_components += (output_port.weight_sliders[i].value() / 100.0) * self.get_outer_region(images[i].magnitude_spectrum, images[i].magnitude_spectrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]])
+                        
+                    elif output_port.combo_boxes[i].currentText() == "Phase":
+                        phase_components += (output_port.weight_sliders[i].value() / 100.0) * self.get_outer_region(images[i].phase_spectrum, images[i].phase_spectrum[
+                        self.selected_region[0] : self.selected_region[1],
+                        self.selected_region[2] : self.selected_region[3]])
+            
+            else:
+                print("Please load images.") 
+                    
+        total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Magnitude") / 100.0
+        total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Phase") / 100.0
+        print(f"sum mag {total_magnitude_weight}")
+        print(f"sum phase {total_phase_weight}")
+
+        if total_magnitude_weight > 0:
+            magnitude_components /= total_magnitude_weight
+        if total_phase_weight > 0:
+            phase_components /= total_phase_weight
+        
+
+        reconstructed_f = magnitude_components * np.exp(1j * phase_components)
+        reconstructed_image = np.abs(np.fft.ifft2(reconstructed_f))
+        print(f"reconstructed image before{reconstructed_image}")
+        reconstructed_image = (reconstructed_image / np.max(reconstructed_image)) * 255
+        reconstructed_image = np.uint8(np.clip(reconstructed_image, 0, 255))
+        print(f"reconstructed image after{reconstructed_image}")
+
+        height, width = reconstructed_image.shape
+        bytes_per_line = width
+        image_bytes = reconstructed_image.tobytes()
+        qimage = QImage(image_bytes, width, height, bytes_per_line, QImage.Format_Grayscale8)
+        pixmap = QPixmap.fromImage(qimage)
+        output_port.label.setPixmap(pixmap.scaled(output_port.label.width(), output_port.label.height(), Qt.KeepAspectRatio))  # Resize to fit label
+
+        
 
 
 if __name__ == "__main__":

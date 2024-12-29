@@ -7,14 +7,14 @@ from PyQt5.QtGui import QPixmap, QImage
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.widgets import RectangleSelector
-# import logging
-# # Configure logging
-# logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class ImageData(QWidget):
     def __init__(self):
         super().__init__()
-        # logging.debug("Initializing ImageData")
+        logging.info("Initializing ImageData")
         self.layout = QVBoxLayout()
         self.layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignVCenter)
 
@@ -98,15 +98,18 @@ class ImageData(QWidget):
             spancoords = 'pixels'
                 )
         self.rectangle_selector.set_active(True)
+        
+        self.real_radio.setEnabled(False)
+        self.imaginary_radio.setEnabled(False)
 
     def start_mouse_drag(self, event):
         '''Start tracking the mouse drag'''
-        # logging.debug("Adjusting brightness and contrast")
+        logging.info("Starting mouse drag")
         self.start_pos = event.pos()
 
     def adjust_brightness_contrast(self, event):
         '''Adjust brightness and contrast based on mouse movement'''
-        # logging.debug("Adjusting brightness and contrast")
+        logging.info("Adjusting brightness and contrast")
 
         if self.image is None:
             return
@@ -130,13 +133,13 @@ class ImageData(QWidget):
     def apply_brightness_contrast(self, image, brightness, contrast):
         
         '''Apply brightness and contrast adjustments'''
-        # logging.debug(f"Applying brightness {brightness} and contrast {contrast}")
+        logging.info(f"Applying brightness {brightness} and contrast {contrast}")
     
         adjusted = np.clip(contrast * image + brightness, 0, 255).astype(np.uint8)
         return adjusted
 
     def load_image(self, file_path=None):
-        # logging.debug(f"Loading image from {file_path}")
+        logging.info(f"Loading image from {file_path}")
     
         if file_path == None:
             file_path, _ = QFileDialog.getOpenFileName(self, "Open Image", "", "Image Files (*.png *.jpg *.bmp)")
@@ -149,7 +152,7 @@ class ImageData(QWidget):
             self.update_component_display()
 
     def calculate_frequency_components(self):
-        # logging.debug("Calculating frequency components")
+        logging.info("Calculating frequency components")
 
         if self.image is not None:
             self.transformed = np.fft.fftshift(np.fft.fft2(self.image))
@@ -159,7 +162,7 @@ class ImageData(QWidget):
             self.imaginary_spectrum = np.imag(self.transformed)
 
     def display_image(self, label):
-        # logging.debug("Displaying image")
+        logging.info("Displaying image")
 
         if self.image is not None:
             height, width = self.image.shape
@@ -170,7 +173,7 @@ class ImageData(QWidget):
             label.setPixmap(pixmap.scaled(label.width(), label.height(), Qt.KeepAspectRatio))  
 
     def update_component_due_brightness_contrast(self, image):
-        # logging.debug("Updating component due to brightness and contrast adjustment")
+        logging.info("Updating component due to brightness and contrast adjustment")
 
         if image is not None:
             if not isinstance(image, np.ndarray) or len(image.shape) != 2:
@@ -204,7 +207,7 @@ class ImageData(QWidget):
             
     def update_component_display(self):
         """Update the displayed frequency component based on the selected radio button."""
-        # logging.debug("Updating component display")
+        logging.info("Updating component display")
 
         current_image = self.image
         if current_image is None:
@@ -221,7 +224,6 @@ class ImageData(QWidget):
         elif self.imaginary_radio.isChecked():
             component = self.imaginary_spectrum
 
-        # Update the plot
         self.ax.clear()
         self.ax.imshow(component, cmap='gray')
         self.ax.axis('off')
@@ -233,7 +235,7 @@ class ImageData(QWidget):
 class outputPort(QWidget):
     def __init__(self,parent=None):
         super().__init__(parent)
-        # logging.debug("Initializing outputPort")
+        logging.info("Initializing outputPort")
 
         self.layout = QVBoxLayout()
         self.layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignVCenter)
@@ -257,14 +259,11 @@ class outputPort(QWidget):
 
         self.layout.addWidget(label_frame)
 
-        self.process_button=QPushButton("Reconstruct")
-        self.process_button.setFixedHeight(50)
-        self.layout.addWidget(self.process_button)
+ 
 
         
 
         self.weight_sliders = []
-        self.combo_boxes = []
 
         for i in range(4):
             self.control_frame = QFrame()
@@ -292,17 +291,6 @@ class outputPort(QWidget):
             H_layout.addWidget(self.weight_slider)
             H_layout.addWidget(self.percentage_label)
 
-
-            self.combo_box = QComboBox()
-            self.combo_box.setFixedWidth(250)
-            self.combo_box.addItem("Magnitude")
-            self.combo_box.addItem("Phase")
-            self.combo_box.addItem("Real")
-            self.combo_box.addItem("Imaginary")
-
-            self.combo_boxes.append(self.combo_box)
-
-            self.control_layout.addWidget(self.combo_box)
             self.control_layout.addLayout(H_layout)  
                   
             self.layout.addWidget(self.control_frame)
@@ -324,11 +312,11 @@ class outputPort(QWidget):
         
         self.region_group = QButtonGroup(self)
 
-        self.inside_region_radio = QRadioButton("Region inside", self)
+        self.inside_region_radio = QRadioButton("Inner Region ", self)
         self.inside_region_radio.setChecked(True)
         self.region_group.addButton(self.inside_region_radio)
         
-        self.outside_region_radio = QRadioButton("Region outside", self)
+        self.outside_region_radio = QRadioButton("Outer Region ", self)
         self.outside_region_radio.setChecked(False)
 
         self.region_group.addButton(self.outside_region_radio)
@@ -343,14 +331,14 @@ class outputPort(QWidget):
         self.setLayout(self.layout)
 
     def update_slider_label(self, value, label):
-        # logging.debug(f"Updating slider label to {value}%")
+        logging.info(f"Updating slider label to {value}%")
         label.setText(f"{value}%")
 
 
 class ImageReconstructionApp(QWidget):
     def __init__(self):
         super().__init__()
-        # logging.debug("Initializing ImageReconstructionApp")
+        logging.info("Initializing ImageReconstructionApp")
 
         self.setWindowTitle("Image Frequency Reconstruction with Weight Sliders")
         self.setGeometry(200, 200, 1000, 600)
@@ -378,7 +366,6 @@ class ImageReconstructionApp(QWidget):
 
         self.layout = QHBoxLayout()
 
-        # Variables to store image objects
         self.image_1 = ImageData()
         self.image_2 = ImageData()
         self.image_3 = ImageData()
@@ -387,9 +374,7 @@ class ImageReconstructionApp(QWidget):
         self.output_port_1 = outputPort()
         self.output_port_2 = outputPort()
 
-        images=[self.image_1, self.image_2, self.image_3, self.image_4]
-########################
-        self.current_output_port = self.output_port_1
+        self.current_output_port = self.output_port_2
         self.output_port_1_radio = QRadioButton()
         self.output_port_2_radio = QRadioButton()
         self.output_port_2_radio.setChecked(True)
@@ -401,7 +386,6 @@ class ImageReconstructionApp(QWidget):
         self.output_port_1_radio.toggled.connect(lambda: self.set_current_output_port(self.output_port_1))
         self.output_port_2_radio.toggled.connect(lambda: self.set_current_output_port(self.output_port_2))
 
-        ###############################
         self.image_layout = QHBoxLayout()
 
 
@@ -441,13 +425,6 @@ class ImageReconstructionApp(QWidget):
         self.layout.addWidget(self.middle_frame)
         self.layout.addWidget(self.right_frame)
 
-
-
-
-        self.output_port_1.process_button.clicked.connect(lambda: self.process_images())
-        self.output_port_2.process_button.clicked.connect(lambda: self.process_images())
-
-
         self.setLayout(self.layout)
 
         self.image_1.rectangle_selector.onselect = self.on_select
@@ -462,27 +439,21 @@ class ImageReconstructionApp(QWidget):
        
         for slider in self.current_output_port.weight_sliders:
             slider.valueChanged.connect(lambda: self.process_images())
-        for combo_box in self.current_output_port.combo_boxes:
-            combo_box.currentIndexChanged.connect(lambda: self.process_images())
-        self.current_output_port.magnitude_phase_mode.toggled.connect(lambda: self.process_images())
-        self.current_output_port.real_imaginary_mode.toggled.connect(lambda: self.process_images())
+        for image in [self.image_1, self.image_2, self.image_3, self.image_4]:
+            image.component_group.buttonClicked.connect(self.process_images)
+        self.current_output_port.magnitude_phase_mode.toggled.connect(lambda: self.update_component_radio_buttons())
+        self.current_output_port.real_imaginary_mode.toggled.connect(lambda: self.update_component_radio_buttons())
         self.current_output_port.inside_region_radio.toggled.connect(lambda: self.process_images())
         self.current_output_port.outside_region_radio.toggled.connect(lambda: self.process_images())
 
         
-
-   
-    def set_current_output_port(self, output_port):
-        self.current_output_port = output_port
-        self.process_images()
-         
     def load_initial_images(self):
-            # logging.debug("Loading initial images")
-    
-            image_paths =  ['D:/DSP/new_task4/Image-Mixer-merging/Data/image1.jpg',
-           'D:/DSP/new_task4/Image-Mixer-merging/Data/image2.jpg',
-           'D:/DSP/new_task4/Image-Mixer-merging/Data/image3.jpg',
-          'D:/DSP/new_task4/Image-Mixer-merging/Data/image4.jpg',
+            logging.info("Loading initial images")
+        
+            image_paths =   ['./Data/image1.jpg',
+           './Data/image2.jpg',
+           './Data/image3.jpg',
+          './Data/image4.jpg',
         ]
             images = [self.image_1, self.image_2, self.image_3, self.image_4]
 
@@ -491,8 +462,43 @@ class ImageReconstructionApp(QWidget):
                 image.rectangle_selector.extents = (0, 250, 0, 250)
                 image.rectangle_selector.update()
 
+    def set_current_output_port(self, output_port):
+
+        self.current_output_port = output_port
+
+        for slider in self.current_output_port.weight_sliders:
+            slider.valueChanged.connect(self.process_images)
+        for image in [self.image_1, self.image_2, self.image_3, self.image_4]:
+            image.component_group.buttonClicked.connect(self.process_images)
+        self.current_output_port.magnitude_phase_mode.toggled.connect(self.update_component_radio_buttons)
+        self.current_output_port.real_imaginary_mode.toggled.connect(self.update_component_radio_buttons)
+        self.current_output_port.inside_region_radio.toggled.connect(self.process_images)
+        self.current_output_port.outside_region_radio.toggled.connect(self.process_images)
+        self.update_component_radio_buttons()
+        self.process_images()
+        
+    
+    def update_component_radio_buttons(self):
+        output_port = self.current_output_port
+        if output_port.magnitude_phase_mode.isChecked():
+            for image in [self.image_1, self.image_2, self.image_3, self.image_4]:
+
+                image.magnitude_radio.setEnabled(True)
+                image.phase_radio.setEnabled(True)
+                image.real_radio.setEnabled(False)
+                image.imaginary_radio.setEnabled(False)
+
+        elif output_port.real_imaginary_mode.isChecked():
+            for image in [self.image_1, self.image_2, self.image_3, self.image_4]:
+
+                image.magnitude_radio.setEnabled(False)
+                image.phase_radio.setEnabled(False)
+                image.real_radio.setEnabled(True)
+                image.imaginary_radio.setEnabled(True)
+
+         
     def on_select(self, eclick, erelease):
-            # logging.debug("Selecting region")
+            logging.info("Selecting region")
 
             x0, y0 = round(eclick.xdata), round(eclick.ydata)
             x1, y1 = round(erelease.xdata), round(erelease.ydata)
@@ -509,8 +515,6 @@ class ImageReconstructionApp(QWidget):
                     self.process_images()
                     
     def get_outer_region(self, all_region, inner_region):
-        print(f'all region shape {all_region.shape}')
-        print(f'inner region shape {inner_region.shape}')
         padded_inner_region = np.pad(inner_region, ((0, all_region.shape[0] - inner_region.shape[0]),
                                             (0, all_region.shape[1] - inner_region.shape[1])),
                              mode='constant', constant_values=0)
@@ -518,14 +522,11 @@ class ImageReconstructionApp(QWidget):
         common_elements = np.isin(all_region, padded_inner_region)
 
         outer_region = np.where(common_elements, 0, all_region)
-        print(f'outer region shape {outer_region.shape}')
-        print(outer_region)
         return outer_region                        
     
                     
     def process_images(self):
-        # logging.debug("Processing images")
-
+        logging.info("Processing images")
         output_port = self.current_output_port
         output_port.progress_bar.setValue(20)
         
@@ -548,28 +549,28 @@ class ImageReconstructionApp(QWidget):
                         self.selected_region[2] : self.selected_region[3]])
 
                 for i in range(4):
-                    # logging.debug(f"Slider {i}: weight = {weight}, component = {component_type}")
-
+                    
                     weight = output_port.weight_sliders[i].value()
-                    component_type = output_port.combo_boxes[i].currentText()
-                    print(f"Slider {i}: weight = {weight}, component = {component_type}")
-
-                    if component_type == "Magnitude":
-                        magnitude_components += weight * images[i].magnitude_spectrum[
-                            self.selected_region[0] : self.selected_region[1],
-                            self.selected_region[2] : self.selected_region[3]]
-                    elif component_type == "Phase":
-                        phase_components += weight * images[i].phase_spectrum[
-                            self.selected_region[0] : self.selected_region[1],
-                            self.selected_region[2] : self.selected_region[3]]
-                    elif component_type == "Real":
-                        real_components += weight * images[i].real_spectrum[
-                            self.selected_region[0] : self.selected_region[1],
-                            self.selected_region[2] : self.selected_region[3]]
-                    elif component_type == "Imaginary":
-                        imaginary_components += weight * images[i].imaginary_spectrum[
-                            self.selected_region[0] : self.selected_region[1],
-                            self.selected_region[2] : self.selected_region[3]]
+                    logging.info(f"Slider {i}: weight = {weight}")
+                    if output_port.magnitude_phase_mode.isChecked():
+                        if images[i].magnitude_radio.isChecked():
+                            magnitude_components += weight * images[i].magnitude_spectrum[
+                                self.selected_region[0] : self.selected_region[1],
+                                self.selected_region[2] : self.selected_region[3]]
+                        elif images[i].phase_radio.isChecked():
+                            phase_components += weight * images[i].phase_spectrum[
+                                self.selected_region[0] : self.selected_region[1],
+                                self.selected_region[2] : self.selected_region[3]]
+                    
+                    else:
+                        if images[i].real_radio.isChecked():
+                            real_components += weight * images[i].real_spectrum[
+                                self.selected_region[0] : self.selected_region[1],
+                                self.selected_region[2] : self.selected_region[3]]
+                        elif images[i].imaginary_radio.isChecked():
+                            imaginary_components += weight * images[i].imaginary_spectrum[
+                                self.selected_region[0] : self.selected_region[1],
+                                self.selected_region[2] : self.selected_region[3]]
         else:
             if all(image.image is not None for image in images):
                 magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
@@ -588,36 +589,38 @@ class ImageReconstructionApp(QWidget):
 
                 for i in range(4):
                     weight = output_port.weight_sliders[i].value()
-                    component_type = output_port.combo_boxes[i].currentText()
-                    print(f"Slider {i}: weight = {weight}, component = {component_type}")
+                    print(f"Slider {i}: weight = {weight}")
                     
-                    if component_type == "Magnitude":
-                        magnitude_components += weight* self.get_outer_region(images[i].magnitude_spectrum, images[i].magnitude_spectrum[
-                        self.selected_region[0] : self.selected_region[1],
-                        self.selected_region[2] : self.selected_region[3]])
+                    if output_port.magnitude_phase_mode.isChecked():
+                        if images[i].magnitude_radio.isChecked():
+
+                            magnitude_components += weight* self.get_outer_region(images[i].magnitude_spectrum, images[i].magnitude_spectrum[
+                            self.selected_region[0] : self.selected_region[1],
+                            self.selected_region[2] : self.selected_region[3]])
                         
-                    elif component_type == "Phase":                        
-                        phase_components += weight * self.get_outer_region(images[i].phase_spectrum, images[i].phase_spectrum[
-                        self.selected_region[0] : self.selected_region[1],
-                        self.selected_region[2] : self.selected_region[3]])
+                        elif images[i].phase_radio.isChecked():                        
+                            phase_components += weight * self.get_outer_region(images[i].phase_spectrum, images[i].phase_spectrum[
+                            self.selected_region[0] : self.selected_region[1],
+                            self.selected_region[2] : self.selected_region[3]])
+                    else:
+
+                        if images[i].real_radio.isChecked():
+                            real_components += weight * self.get_outer_region(images[i].real_spectrum, images[i].real_spectrum[
+                            self.selected_region[0] : self.selected_region[1],
+                            self.selected_region[2] : self.selected_region[3]])
                         
-                    elif component_type == "Real":
-                        real_components += weight * self.get_outer_region(images[i].real_spectrum, images[i].real_spectrum[
-                        self.selected_region[0] : self.selected_region[1],
-                        self.selected_region[2] : self.selected_region[3]])
-                        
-                    elif component_type == "Imaginary":
-                        real_components += weight * self.get_outer_region(images[i].imaginary_spectrum, images[i].imaginary_spectrum[
-                        self.selected_region[0] : self.selected_region[1],
-                        self.selected_region[2] : self.selected_region[3]])
+                        elif images[i].imaginary_radio.isChecked():
+                            imaginary_components += weight * self.get_outer_region(images[i].imaginary_spectrum, images[i].imaginary_spectrum[
+                            self.selected_region[0] : self.selected_region[1],
+                            self.selected_region[2] : self.selected_region[3]])
             else:
                 print("Please load images.") 
                     
         
-        total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Magnitude")
-        total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Phase")
-        total_real_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Real")
-        total_imaginary_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Imaginary")
+        total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if images[i].magnitude_radio.isChecked())
+        total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if images[i].phase_radio.isChecked())
+        total_real_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if images[i].real_radio.isChecked())
+        total_imaginary_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if images[i].imaginary_radio.isChecked())
 
         if total_magnitude_weight > 0:
             magnitude_components /= total_magnitude_weight
@@ -635,9 +638,15 @@ class ImageReconstructionApp(QWidget):
         output_port.progress_bar.setValue(50)
 
         reconstructed_image = np.abs(np.fft.ifft2(reconstructed_f))
-        reconstructed_image = (reconstructed_image / np.max(reconstructed_image)) * 255
+
+        if np.max(reconstructed_image) > 0:
+            reconstructed_image = (reconstructed_image / np.max(reconstructed_image)) * 255
+        else:
+            reconstructed_image = np.zeros_like(reconstructed_image)
 
         reconstructed_image = np.uint8(np.clip(reconstructed_image, 0, 255))
+
+
         output_port.label.clear() 
         height, width = reconstructed_image.shape
         bytes_per_line = width
@@ -652,8 +661,8 @@ class ImageReconstructionApp(QWidget):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     
-    # with open("./Styling/style.css", "r") as file:
-    #     app.setStyleSheet(file.read())
+    with open("./Styling/style.css", "r") as file:
+        app.setStyleSheet(file.read())
     
     window = ImageReconstructionApp()
     window.show()

@@ -124,6 +124,7 @@ class ImageData(QWidget):
         adjusted_image = self.apply_brightness_contrast(self.image, self.brightness, self.contrast)
         self.label.display_image(adjusted_image)
         self.update_component_due_brightness_contrast(adjusted_image)
+        self.parent().parent().parent().process_images()
 
     def apply_brightness_contrast(self, image, brightness, contrast):
         adjusted = np.clip(contrast * image + brightness, 0, 255).astype(np.uint8)
@@ -140,6 +141,8 @@ class ImageData(QWidget):
             print(f"[DEBUG] Frequency components set in load_image: magnitude_spectrum shape: {self.magnitude_spectrum.shape if self.magnitude_spectrum is not None else 'None'}")
             self.label.display_image(self.image)
             self.update_component_display()
+        self.parent().parent().parent().process_images()  
+    
 
     def calculate_frequency_components(self, image):
         print(f"[DEBUG] calculate_frequency_components called with image of shape: {image.shape if image is not None else 'None'}")
@@ -225,14 +228,24 @@ class outputPort(QWidget):
             self.control_frame = QFrame()
             self.control_frame.setObjectName("control_frame")
             self.control_layout = QVBoxLayout()
-            self.control_layout.setSpacing(20)
-            self.control_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)                 
+            self.control_layout.setContentsMargins(10, 5, 10, 5)  
+            # self.control_layout.setSpacing(10)
+            self.control_layout.setAlignment(Qt.AlignmentFlag.AlignVertical_Mask)                 
             self.control_frame.setLayout(self.control_layout)
+
+            self.title=QLabel(f"Compnent {i+1}")
+            self.title.setFixedWidth(80)
+            self.title.setStyleSheet("font-size: 12px; font-weight: bold;background-color: transparent")
+            self.title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
 
             H_layout = QHBoxLayout()
             
             self.percentage_label = QLabel("0%")
+            self.percentage_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.percentage_label.setObjectName("percentage_label")
+
+
 
             self.weight_slider = QSlider(Qt.Orientation.Horizontal)
             self.weight_slider.setRange(0, 100)
@@ -246,8 +259,10 @@ class outputPort(QWidget):
             H_layout.addWidget(self.weight_slider)
             H_layout.addWidget(self.percentage_label)
 
+            H_layout_child=QHBoxLayout()
+
             self.combo_box = QComboBox()
-            self.combo_box.setFixedWidth(250)
+            # self.combo_box.setFixedWidth(250)
             self.combo_box.addItem("Magnitude")
             self.combo_box.addItem("Phase")
             self.combo_box.addItem("Real")
@@ -255,7 +270,9 @@ class outputPort(QWidget):
 
             self.combo_boxes.append(self.combo_box)
 
-            self.control_layout.addWidget(self.combo_box)
+            H_layout_child.addWidget(self.combo_box)
+            H_layout_child.addWidget(self.title)
+            self.control_layout.addLayout(H_layout_child)  
             self.control_layout.addLayout(H_layout)  
             self.layout.addWidget(self.control_frame)
 
@@ -470,14 +487,11 @@ class ImageReconstructionApp(QWidget):
     
                     
     def process_images(self):
-        # logging.debug("Processing images")
-
         output_port = self.current_output_port
         output_port.progress_bar.setValue(20)
         
         images = [self.image_1, self.image_2, self.image_3, self.image_4]
 
-        
         if output_port.inside_region_radio.isChecked():
             if all(image.image is not None for image in images):
                 magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
@@ -494,11 +508,12 @@ class ImageReconstructionApp(QWidget):
                         self.selected_region[2] : self.selected_region[3]])
 
                 for i in range(4):
-                    # logging.debug(f"Slider {i}: weight = {weight}, component = {component_type}")
-
                     weight = output_port.weight_sliders[i].value()
                     component_type = output_port.combo_boxes[i].currentText()
                     print(f"Slider {i}: weight = {weight}, component = {component_type}")
+
+                    adjusted_image = images[i].apply_brightness_contrast(images[i].image, images[i].brightness, images[i].contrast)
+                    images[i].transformed, images[i].magnitude_spectrum, images[i].phase_spectrum, images[i].real_spectrum, images[i].imaginary_spectrum = images[i].calculate_frequency_components(adjusted_image)
 
                     if component_type == "Magnitude":
                         magnitude_components += weight * images[i].magnitude_spectrum[
@@ -516,6 +531,9 @@ class ImageReconstructionApp(QWidget):
                         imaginary_components += weight * images[i].imaginary_spectrum[
                             self.selected_region[0] : self.selected_region[1],
                             self.selected_region[2] : self.selected_region[3]]
+            else:
+                print("Please load images.") 
+                return
         else:
             if all(image.image is not None for image in images):
                 magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
@@ -531,35 +549,34 @@ class ImageReconstructionApp(QWidget):
                         0 : 250,
                         0 : 250])
 
-
                 for i in range(4):
                     weight = output_port.weight_sliders[i].value()
                     component_type = output_port.combo_boxes[i].currentText()
                     print(f"Slider {i}: weight = {weight}, component = {component_type}")
-                    
+
+                    adjusted_image = images[i].apply_brightness_contrast(images[i].image, images[i].brightness, images[i].contrast)
+                    images[i].transformed, images[i].magnitude_spectrum, images[i].phase_spectrum, images[i].real_spectrum, images[i].imaginary_spectrum = images[i].calculate_frequency_components(adjusted_image)
+
                     if component_type == "Magnitude":
-                        magnitude_components += weight* self.get_outer_region(images[i].magnitude_spectrum, images[i].magnitude_spectrum[
-                        self.selected_region[0] : self.selected_region[1],
-                        self.selected_region[2] : self.selected_region[3]])
-                        
-                    elif component_type == "Phase":                        
+                        magnitude_components += weight * self.get_outer_region(images[i].magnitude_spectrum, images[i].magnitude_spectrum[
+                            self.selected_region[0] : self.selected_region[1],
+                            self.selected_region[2] : self.selected_region[3]])
+                    elif component_type == "Phase":
                         phase_components += weight * self.get_outer_region(images[i].phase_spectrum, images[i].phase_spectrum[
-                        self.selected_region[0] : self.selected_region[1],
-                        self.selected_region[2] : self.selected_region[3]])
-                        
+                            self.selected_region[0] : self.selected_region[1],
+                            self.selected_region[2] : self.selected_region[3]])
                     elif component_type == "Real":
                         real_components += weight * self.get_outer_region(images[i].real_spectrum, images[i].real_spectrum[
-                        self.selected_region[0] : self.selected_region[1],
-                        self.selected_region[2] : self.selected_region[3]])
-                        
+                            self.selected_region[0] : self.selected_region[1],
+                            self.selected_region[2] : self.selected_region[3]])
                     elif component_type == "Imaginary":
-                        real_components += weight * self.get_outer_region(images[i].imaginary_spectrum, images[i].imaginary_spectrum[
-                        self.selected_region[0] : self.selected_region[1],
-                        self.selected_region[2] : self.selected_region[3]])
+                        imaginary_components += weight * self.get_outer_region(images[i].imaginary_spectrum, images[i].imaginary_spectrum[
+                            self.selected_region[0] : self.selected_region[1],
+                            self.selected_region[2] : self.selected_region[3]])
             else:
                 print("Please load images.") 
-                    
-        
+                return
+
         total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Magnitude")
         total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Phase")
         total_real_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if output_port.combo_boxes[i].currentText() == "Real")
@@ -592,8 +609,6 @@ class ImageReconstructionApp(QWidget):
         pixmap = QPixmap.fromImage(qimage)
         output_port.label.setPixmap(pixmap.scaled(output_port.label.width(), output_port.label.height(), Qt.KeepAspectRatio))
         output_port.progress_bar.setValue(100)
-
-        
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

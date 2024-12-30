@@ -16,10 +16,10 @@ class ImageLabel(QLabel):
         super().__init__(text)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setStyleSheet("border: 1px solid black;")
-        self.setMaximumWidth(250)
-        self.setMinimumWidth(250)
-        self.setMaximumHeight(250)
-        self.setMinimumHeight(250)
+        self.setMaximumWidth(280)
+        self.setMinimumWidth(280)
+        self.setMaximumHeight(280)
+        self.setMinimumHeight(280)
 
     def display_image(self, image):
         if image is not None:
@@ -66,7 +66,7 @@ class ImageData(QWidget):
         self.label.mouseDoubleClickEvent = lambda event: self.load_image()
 
         self.component_canvas = FigureCanvas(Figure(figsize=(2, 2)))
-        self.component_canvas.setFixedSize(250, 250)
+        self.component_canvas.setFixedSize(280, 280)
         self.ax = self.component_canvas.figure.add_subplot(111)
         self.ax.axis('off') 
 
@@ -257,7 +257,7 @@ class outputPort(QWidget):
             self.control_frame.setObjectName("control_frame")
             self.control_layout = QVBoxLayout()
             # self.control_layout.setContentsMargins(10, 5, 10, 5)  
-            # self.control_layout.setSpacing(10)
+            self.control_layout.setSpacing(15)
             self.control_layout.setAlignment(Qt.AlignmentFlag.AlignVertical_Mask)                 
             self.control_frame.setLayout(self.control_layout)
 

@@ -145,6 +145,7 @@ class ImageData(QWidget):
     
 
     def calculate_frequency_components(self, image):
+        logging.info("Calculating frequency components")
         print(f"[DEBUG] calculate_frequency_components called with image of shape: {image.shape if image is not None else 'None'}")
         if image is not None:
             transformed = np.fft.fftshift(np.fft.fft2(image))
@@ -156,6 +157,8 @@ class ImageData(QWidget):
         return None, None, None, None, None
 
     def update_component_due_brightness_contrast(self, image):
+        logging.info("Updating component due to brightness and contrast adjustment")
+
         print(f"[DEBUG] update_component_due_brightness_contrast called with image of shape: {image.shape if image is not None else 'None'}")
         if image is not None:
             self.transformed, self.magnitude_spectrum, self.phase_spectrum, self.real_spectrum, self.imaginary_spectrum = self.calculate_frequency_components(image)

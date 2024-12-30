@@ -63,7 +63,7 @@ QRadioButton {
   background-color: transparent;
 }
 
-QFrame#control_frame {
+QFrame#control_frame,#modes_frame {
   border: 1px solid rgb(67, 173, 219);
   border-radius: 10px;
   background-color: rgb(223, 227, 229);

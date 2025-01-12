@@ -452,22 +452,23 @@ class ImageReconstructionApp(QWidget):
         self.current_output_port.real_imaginary_mode.toggled.connect(lambda: self.update_component_radio_buttons())
         self.current_output_port.inside_region_radio.toggled.connect(lambda: self.process_images())
         self.current_output_port.outside_region_radio.toggled.connect(lambda: self.process_images())
-
+        
         
     def load_initial_images(self):
-            logging.info("Loading initial images")
+        #     logging.info("Loading initial images")
         
-            image_paths =   ['./Data/image1.jpg',
-           './Data/image2.jpg',
-           './Data/image3.jpg',
-          './Data/image4.jpg',
-        ]
-            images = [self.image_1, self.image_2, self.image_3, self.image_4]
-
-            for image, path in zip(images, image_paths):
-                image.load_image(path)
-                image.rectangle_selector.extents = (0, 250, 0, 250)
-                image.rectangle_selector.update()
+        #     image_paths =   ['./Data/image1.jpg',
+        #    './Data/image1.jpg',
+        #    './Data/image1.jpg',
+        #   './Data/image1.jpg',
+        # ]
+        #     images = [self.image_1, self.image_2, self.image_3, self.image_4]
+        
+        #     for image, path in zip(images, image_paths):
+        #         image.load_image(path)
+        #         image.rectangle_selector.extents = (0, 250, 0, 250)
+        #         image.rectangle_selector.update()
+        pass
 
     def set_current_output_port(self, output_port):
 
@@ -583,8 +584,22 @@ class ImageReconstructionApp(QWidget):
                             self.selected_region[0] : self.selected_region[1],
                             self.selected_region[2] : self.selected_region[3]]
             else:
-                print("Please load images.") 
-                return
+                magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
+                        0 : 250,
+                        0 : 250])
+                phase_components = np.zeros_like(images[0].phase_spectrum[
+                        0 : 250,
+                        0 : 250])
+                real_components = np.zeros_like(images[0].real_spectrum[                    
+                        0 : 250,
+                        0 : 250])
+                imaginary_components = np.zeros_like(images[0].imaginary_spectrum[
+                        0 : 250,
+                        0 : 250])
+                
+
+            #     print("Please load images.") 
+            #     return
         else:
             if all(image.image is not None for image in images):
                 magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
@@ -625,7 +640,19 @@ class ImageReconstructionApp(QWidget):
                             self.selected_region[2] : self.selected_region[3]])
             else:
                 print("Please load images.") 
-                return
+                magnitude_components = np.zeros_like(images[0].magnitude_spectrum[
+                        0 : 250,
+                        0 : 250])
+                phase_components = np.zeros_like(images[0].phase_spectrum[
+                        0 : 250,
+                        0 : 250])
+                real_components = np.zeros_like(images[0].real_spectrum[                    
+                        0 : 250,
+                        0 : 250])
+                imaginary_components = np.zeros_like(images[0].imaginary_spectrum[
+                        0 : 250,
+                        0 : 250])
+                
 
         total_magnitude_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if images[i].magnitude_radio.isChecked())
         total_phase_weight = sum(output_port.weight_sliders[i].value() for i in range(4) if images[i].phase_radio.isChecked())

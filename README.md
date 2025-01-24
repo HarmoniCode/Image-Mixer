@@ -22,7 +22,7 @@ Image-Mixer is a PyQt5-based application that allows users to load, adjust, and 
 ## Installation
 1. Clone the repository:
     ```sh
-    git clone https://github.com/ahmed-226/Image-Mixer.git 
+    git clone https://github.com/HarmoniCode/Image-Mixer.git
     ```
 2. Navigate to the project directory:
     ```sh

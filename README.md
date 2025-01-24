@@ -1,6 +1,6 @@
 # Image-Mixer
 
-![alt text](image.png)
+![alt text](./assets/image.png)
 
 ## Overview
 Image-Mixer is a PyQt5-based application that allows users to load, adjust, and mix images using various frequency components. The application provides real-time adjustments for brightness and contrast, and allows users to reconstruct images using different frequency components such as magnitude, phase, real, and imaginary parts.

@@ -139,7 +139,7 @@ QComboBox::drop-down {
   padding: 5px;
 }
 QComboBox::down-arrow {
-  image: url(./icons/arrow_down.png);
+  image: url(../assets/Icons/arrow_down.png);
   /* make image fitting */
   width: 15px;
   height: 15px;

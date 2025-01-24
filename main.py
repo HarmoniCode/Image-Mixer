@@ -129,6 +129,7 @@ class ImageData(QWidget):
         self.label.setScaledContents(True)
 
         self.update_component_due_brightness_contrast(adjusted_image)
+        self.parent().parent().parent().process_images()
 
     def apply_brightness_contrast(self, image, brightness, contrast):
         
@@ -154,6 +155,7 @@ class ImageData(QWidget):
             self.rectangle_selector.extents = (0, 250, 0, 250)
             self.rectangle_selector.update()
             #############
+            self.parent().parent().parent().process_images()
     def calculate_frequency_components(self):
         logging.info("Calculating frequency components")
 
